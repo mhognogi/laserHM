@@ -6,6 +6,7 @@ import { adjustImageId, importImage } from "../images";
 import { status } from "../laser";
 import { materialTestOpen } from "../materialTest";
 import { redo, undo } from "../history";
+import { newProject, openProject, saveProject, saveProjectAs } from "../project";
 import AboutDialog from "./AboutDialog.vue";
 import HowToDialog from "./HowToDialog.vue";
 import AdjustImageDialog from "./AdjustImageDialog.vue";
@@ -44,8 +45,17 @@ async function onFilePicked() {
 const menus = computed<{ name: string; title: string; items?: Item[] }[]>(() => [
   {
     name: "File",
-    title: "Import images",
+    title: "Projects and images",
     items: [
+      { name: "New", shortcut: "Ctrl+N", title: "Start an empty project", action: newProject },
+      { name: "Open…", shortcut: "Ctrl+O", title: "Open a laserHM project (.lhm)", action: openProject },
+      { name: "Save", shortcut: "Ctrl+S", title: "Save the project to its file", action: saveProject },
+      {
+        name: "Save As…",
+        shortcut: "Ctrl+Shift+S",
+        title: "Save the project to a new file",
+        action: saveProjectAs,
+      },
       {
         name: "Import…",
         shortcut: "Ctrl+I",
@@ -106,10 +116,18 @@ function onPointerDown(event: PointerEvent) {
 }
 function onKey(event: KeyboardEvent) {
   if (event.key === "Escape") open.value = null;
-  // Ctrl+I: File > Import, except while typing in a field.
-  if (event.ctrlKey && event.key.toLowerCase() === "i" && !(event.target as Element).closest("input, textarea, select")) {
+  // File shortcuts, except while typing in a field.
+  if (!event.ctrlKey || (event.target as Element).closest("input, textarea, select")) return;
+  const actions: Record<string, () => void> = {
+    i: () => fileInput.value?.click(),
+    n: newProject,
+    o: openProject,
+    s: event.shiftKey ? saveProjectAs : saveProject,
+  };
+  const action = actions[event.key.toLowerCase()];
+  if (action) {
     event.preventDefault();
-    fileInput.value?.click();
+    action();
   }
 }
 onMounted(() => {

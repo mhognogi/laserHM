@@ -114,6 +114,14 @@ export function addShape(shape: Omit<Shape, "id">): number {
   return id;
 }
 
+/** Puts `shapes` in place of all the shapes (New, Open), nothing selected. */
+export function replaceShapes(shapes: Shape[]) {
+  editor.shapes = shapes;
+  editor.selectedIds = [];
+  // New shapes get ids after the loaded ones.
+  nextId = Math.max(0, ...shapes.map((shape) => shape.id)) + 1;
+}
+
 /** Adds several shapes and selects them together (e.g. a Material Test, to move it as one). */
 export function addShapes(shapes: Omit<Shape, "id">[]) {
   editor.selectedIds = shapes.map((shape) => {

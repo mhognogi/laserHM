@@ -5,6 +5,7 @@ mod grbl;
 mod job;
 mod material_test;
 pub mod mcp;
+mod project;
 mod settings;
 mod state;
 mod text;
@@ -14,6 +15,8 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // The Windows Open / Save dialogs (File menu).
+        .plugin(tauri_plugin_dialog::init())
         .manage(state::AppState::default())
         .manage(mcp::McpState::default())
         .setup(|app| {
@@ -47,6 +50,10 @@ pub fn run() {
             commands::resume,
             commands::stop,
             mcp::mcp_respond,
+            project::save_project,
+            project::open_project,
+            project::save_session,
+            project::load_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

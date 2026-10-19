@@ -962,7 +962,7 @@ function onKeyDown(event: KeyboardEvent) {
     cancelRotate();
     menu.value = null;
   }
-  // Delete, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+Z and Ctrl+Shift+Z act on shapes, except while typing in a field
+  // Delete, Ctrl+A, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+Z and Ctrl+Shift+Z act on shapes, except while typing in a field
   // (there they edit text) or in the middle of a move, resize or rotation.
   if (typing || move.value || resize.value || rotation.value) return;
   if (event.key === "Delete") {
@@ -982,6 +982,11 @@ function onKeyDown(event: KeyboardEvent) {
     deleteSelected();
   } else if (event.ctrlKey && event.key.toLowerCase() === "v") {
     paste();
+  } else if (event.ctrlKey && event.key.toLowerCase() === "a") {
+    // Select all shapes (instead of the browser selecting the page's text).
+    event.preventDefault();
+    menu.value = null;
+    editor.selectedIds = editor.shapes.map((shape) => shape.id);
   }
 }
 

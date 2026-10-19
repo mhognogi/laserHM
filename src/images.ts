@@ -49,6 +49,7 @@ export const DEFAULT_IMAGE_SETTINGS: ImageSettings = {
 /** An imported picture, loaded and ready to draw; shapes refer to it by id. */
 interface ImageSource {
   element: HTMLImageElement;
+  /** The whole file as a data URL ("data:image/png;base64,…"), so a project can hold it. */
   url: string;
 }
 
@@ -58,6 +59,38 @@ let nextImageId = 1;
 
 export function imageUrl(shape: Shape): string {
   return sources.get(shape.imageId ?? 0)?.url ?? "";
+}
+
+/** Loads a picture from its data URL and keeps it under a new id, which it returns. */
+async function addSource(url: string): Promise<number> {
+  const element = new Image();
+  element.src = url;
+  await element.decode();
+  const imageId = nextImageId++;
+  sources.set(imageId, { element, url });
+  return imageId;
+}
+
+/** The pictures the shapes use, by id, as data URLs (for a project file). */
+export function imagesOf(shapes: Shape[]): Record<number, string> {
+  const images: Record<number, string> = {};
+  for (const shape of shapes) {
+    const source = sources.get(shape.imageId ?? 0);
+    if (source) images[shape.imageId!] = source.url;
+  }
+  return images;
+}
+
+/**
+ * Loads the pictures of a project and points its shapes to them. They get new ids, so
+ * they never mix with pictures already loaded (and their previews) under the same number.
+ */
+export async function restoreImages(shapes: Shape[], images: Record<number, string>) {
+  const ids = new Map<number, number>();
+  for (const [id, url] of Object.entries(images)) ids.set(Number(id), await addSource(url));
+  for (const shape of shapes) {
+    if (shape.imageId !== undefined) shape.imageId = ids.get(shape.imageId);
+  }
 }
 
 /** The image whose Adjust Image dialog is open, or null. */
@@ -108,14 +141,16 @@ function fileDpi(bytes: Uint8Array): number | null {
  */
 export async function importImage(file: File): Promise<Shape> {
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const url = URL.createObjectURL(file);
-  const element = new Image();
-  element.src = url;
-  await element.decode();
+  const url = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+  const imageId = await addSource(url);
+  const element = sources.get(imageId)!.element;
 
   const dpi = fileDpi(bytes) ?? DEFAULT_DPI;
-  const imageId = nextImageId++;
-  sources.set(imageId, { element, url });
   const area = status.workArea ?? { width: 200, height: 200 };
   const mmPerPixel = 25.4 / dpi;
   addShape({

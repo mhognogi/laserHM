@@ -30,8 +30,9 @@ const QUIET_TIME: Duration = Duration::from_millis(300);
 const STATUS_QUERY: u8 = b'?';
 /// How often the position is asked for while a job runs.
 const STATUS_INTERVAL: Duration = Duration::from_millis(200);
-/// GRBL's serial receive buffer, in characters (see `run_with`).
-const RX_BUFFER: usize = 128;
+/// GRBL's serial receive buffer is 128 bytes, but a ring buffer keeps one free: it holds
+/// at most 127 characters. One more is lost, and with it maybe a line's end (see `run_with`).
+const RX_BUFFER_CHARS: usize = 127;
 /// How long to wait for "ok" to a command before giving up.
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(60);
 /// How often to check for a stop request while waiting for a response.
@@ -155,7 +156,7 @@ impl Grbl {
             let length = command.len() + 1;
             let system = command.starts_with('$');
             while let Some(&(oldest, size)) = waiting.front() {
-                if !system && buffered + length <= RX_BUFFER {
+                if !system && buffered + length <= RX_BUFFER_CHARS {
                     break;
                 }
                 let accepted = index - waiting.len();

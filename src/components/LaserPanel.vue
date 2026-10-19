@@ -19,7 +19,7 @@ import { rasterData } from "../images";
 // Button rules:
 //   not connected                -> all disabled
 //   connected, nothing selected  -> Home, "No object selected"
-//   connected, objects selected  -> Start, Home, Sim., "Click to start"
+//   connected, objects selected  -> Start, Home, Simulate, "Click to start"
 //   cut or simulation running    -> Pause, Stop
 //   cut or simulation paused     -> Start (resumes), Stop
 //   homing, moving the head, Fire -> Stop
@@ -113,6 +113,18 @@ watch(job, () => {
   }, 500);
 });
 
+/**
+ * The mouse wheel over a field: up adds `step`, down takes it away, within `min`–`max`.
+ * Not while a job runs (the fields are locked then).
+ */
+function onWheel(event: WheelEvent, field: keyof JobSettings, step: number, min: number, max: number) {
+  if (status.busy) return;
+  const value = Number(job[field]) || 0;
+  const next = value + (event.deltaY < 0 ? step : -step);
+  // Back onto the steps (e.g. 2050 + 100 → 2100), then within the limits.
+  job[field] = Math.min(max, Math.max(min, Math.round(next / step) * step));
+}
+
 /** All selected shapes, as Rust expects them. */
 function selectedShapeData(): ShapeData[] {
   return selectedShapes().map(shapeData);
@@ -205,6 +217,17 @@ function onChecksClosed() {
       {{ message }}
     </p>
 
+    <!-- How far the job is, as in LightBurn: time worked, the bar, estimated total time. -->
+    <div
+      class="progress"
+      title="Time worked, progress of the job, and estimated total time (from the moves and their speeds)"
+    >
+      <!-- Without data both times show 00:00. -->
+      <span class="time">{{ jobProgress ? clock(elapsed) : "00:00" }}</span>
+      <div class="bar"><div class="done" :style="{ width: `${percent}%` }"></div></div>
+      <span class="time">{{ jobProgress ? clock(jobProgress.totalSeconds) : "00:00" }}</span>
+    </div>
+
     <div class="buttons">
       <!-- :disabled is recalculated automatically when `status` or the selection changes. -->
       <button
@@ -244,7 +267,7 @@ function onChecksClosed() {
         title="Home the head ($H), then follow the selected shapes once with the laser off, at the chosen speed"
         @click="onSimulate"
       >
-        <Route :size="16" /> Sim.
+        <Route :size="16" /> Simulate
       </button>
       <label class="check">
         Verify
@@ -302,7 +325,8 @@ function onChecksClosed() {
           min="0"
           max="100"
           :disabled="status.busy"
-          title="Laser power, in % of the maximum ($30)"
+          title="Laser power, in % of the maximum ($30); mouse wheel: ±1"
+          @wheel.prevent="onWheel($event, 'powerPercent', 1, 0, 100)"
         />
       </label>
       <label>
@@ -313,7 +337,8 @@ function onChecksClosed() {
           type="number"
           min="1"
           :disabled="status.busy"
-          title="Cutting speed, in mm/min"
+          title="Cutting speed, in mm/min; mouse wheel: ±100"
+          @wheel.prevent="onWheel($event, 'feed', 100, 1, 9999)"
         />
       </label>
       <label>
@@ -326,20 +351,10 @@ function onChecksClosed() {
           max="100"
           step="1"
           :disabled="status.busy"
-          title="How many times the shapes are cut; each pass cuts every selected shape in turn"
+          title="How many times the shapes are cut; each pass cuts every selected shape in turn; mouse wheel: ±1"
+          @wheel.prevent="onWheel($event, 'passes', 1, 1, 100)"
         />
       </label>
-    </div>
-
-    <!-- How far the job is, as in LightBurn: time worked, the bar, estimated total time. -->
-    <div
-      class="progress"
-      title="Time worked, progress of the job, and estimated total time (from the moves and their speeds)"
-    >
-      <!-- Without data both times show 00:00. -->
-      <span class="time">{{ jobProgress ? clock(elapsed) : "00:00" }}</span>
-      <div class="bar"><div class="done" :style="{ width: `${percent}%` }"></div></div>
-      <span class="time">{{ jobProgress ? clock(jobProgress.totalSeconds) : "00:00" }}</span>
     </div>
 
     <!-- Closing the popup (✕, Escape or a click outside) arms Start: the next click cuts. -->
@@ -398,17 +413,24 @@ function onChecksClosed() {
   gap: 6px;
 }
 
-/* Home, Sim. and the Verify box on one row. */
+/* Home, Simulate and the Verify box on one row, in the same three columns as Start, Pause, Stop. */
 .tools {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   align-items: center;
   gap: 6px;
 }
 
+/* Verify at the right: its box ends where the inputs and the dividing lines do. */
 .check {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 3px;
+}
+
+.check input {
+  margin-right: 0;
 }
 
 .checks-dialog {
@@ -482,13 +504,13 @@ button:disabled {
 
 /* Label and input pairs on one row, separated from the buttons like the zoom
    buttons are from the size fields in the top bar. */
-/* Under the job settings, after a dividing line. */
+/* Above Start, with a dividing line below. */
 .progress {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding-top: 8px;
-  border-top: 1px solid var(--muted);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -512,13 +534,22 @@ button:disabled {
   background: var(--accent);
 }
 
-/* space-between: Passes ends where the dividing line does. */
+/* The same three columns as the buttons: Power under Start (at its left), Speed under
+   Pause (centered), Passes under Stop (ending where the dividing line does). */
 .job-settings {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
   padding-top: 8px;
   border-top: 1px solid var(--muted);
+}
+
+.job-settings label:nth-child(2) {
+  justify-self: center;
+}
+
+.job-settings label:nth-child(3) {
+  justify-self: end;
 }
 
 .job-settings label {
@@ -550,12 +581,14 @@ button:disabled {
   opacity: 0.5;
 }
 
+/* A little wider than 3 digits. */
 .job-settings .power {
-  width: 3ch;
+  width: calc(3ch + 3px);
 }
 
+/* 4 digits: up to 9999 mm/min. */
 .job-settings .speed {
-  width: 5ch;
+  width: 4ch;
 }
 
 .job-settings .passes {

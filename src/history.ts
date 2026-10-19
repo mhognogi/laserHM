@@ -69,6 +69,13 @@ for (const type of ["pointerup", "pointercancel"]) {
   );
 }
 
+/** Forgets every change (after New or Open, as in LightBurn): the shapes now are the start. */
+export function resetHistory() {
+  undoStack.length = 0;
+  redoStack.length = 0;
+  current = capture();
+}
+
 /**
  * Ctrl+Z: puts the shapes back as they were before the last change and selects the
  * shapes it brings back or changes. A text being typed is finished first.

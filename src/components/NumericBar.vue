@@ -43,18 +43,24 @@ function onFirePowerChange(event: Event) {
   input.value = String(fireSettings.powerPercent);
 }
 
+/** The mouse wheel over the Fire power: ±5 %, within 0–100. */
+function onFirePowerWheel(event: WheelEvent) {
+  const next = fireSettings.powerPercent + (event.deltaY < 0 ? 5 : -5);
+  fireSettings.powerPercent = Math.min(100, Math.max(0, Math.round(next / 5) * 5));
+}
+
 type Field = "x" | "y" | "width" | "height";
 
 // The four inputs in LightBurn's order, in two groups: position and size.
 // They describe the box around all selected shapes; xCtr/yCtr are its center.
 const groups: { id: Field; label: string; title: string }[][] = [
   [
-    { id: "x", label: "xCtr", title: "X position of the selection's center, in mm" },
-    { id: "y", label: "yCtr", title: "Y position of the selection's center, in mm" },
+    { id: "x", label: "xCtr", title: "X position of the selection's center, in mm; mouse wheel: ±1 mm" },
+    { id: "y", label: "yCtr", title: "Y position of the selection's center, in mm; mouse wheel: ±1 mm" },
   ],
   [
-    { id: "width", label: "Width", title: "Width of the selection, in mm" },
-    { id: "height", label: "Height", title: "Height of the selection, in mm" },
+    { id: "width", label: "Width", title: "Width of the selection, in mm; mouse wheel: ±1 mm" },
+    { id: "height", label: "Height", title: "Height of the selection, in mm; mouse wheel: ±1 mm" },
   ],
 ];
 
@@ -85,20 +91,28 @@ function format(field: Field): string {
 function apply(field: Field, event: Event) {
   const input = event.target as HTMLInputElement;
   const value = Number(input.value);
-  const valid = input.value.trim() !== "" && Number.isFinite(value) && (!isSize(field) || value > 0);
-  const box = selectionBox();
-
-  if (box && values.value && valid) {
-    const next = { ...values.value, [field]: value };
-    transformGroup(snapshotSelected(), box, {
-      left: next.x - next.width / 2,
-      right: next.x + next.width / 2,
-      bottom: next.y - next.height / 2,
-      top: next.y + next.height / 2,
-    });
-  }
+  if (input.value.trim() !== "" && Number.isFinite(value)) setField(field, value);
   // Always rewrite the input: shows the formatted new value, or the old one if invalid.
   input.value = format(field);
+}
+
+/** Moves (x, y) or resizes (width, height) the selection to `value`; a size must stay above 0. */
+function setField(field: Field, value: number) {
+  const box = selectionBox();
+  if (!box || !values.value || (isSize(field) && !(value > 0))) return;
+  const next = { ...values.value, [field]: value };
+  transformGroup(snapshotSelected(), box, {
+    left: next.x - next.width / 2,
+    right: next.x + next.width / 2,
+    bottom: next.y - next.height / 2,
+    top: next.y + next.height / 2,
+  });
+}
+
+/** The mouse wheel over xCtr, yCtr, Width or Height: ±1 mm (up: more). */
+function onFieldWheel(field: Field, event: WheelEvent) {
+  if (!values.value || (isSize(field) && sizeLocked())) return;
+  setField(field, values.value[field] + (event.deltaY < 0 ? 1 : -1));
 }
 
 /**
@@ -123,6 +137,12 @@ function applyRotate(event: Event) {
   }
   // Always rewrite the input: shows the new angle, or the old one if invalid.
   input.value = angle.value.toFixed(1);
+}
+
+/** The mouse wheel over Rotate turns the selection 1° (up: counterclockwise). */
+function onRotateWheel(event: WheelEvent) {
+  if (!values.value) return;
+  rotateSelected(event.deltaY < 0 ? 1 : -1);
 }
 
 /** Middle zoom button: the selection if there is one, otherwise the whole work area. */
@@ -152,6 +172,7 @@ const showText = computed(() => {
           :disabled="!values || (isSize(field.id) && sizeLocked())"
           :title="isSize(field.id) && sizeLocked() ? 'A Material Test cannot be resized' : field.title"
           @change="apply(field.id, $event)"
+          @wheel.prevent="onFieldWheel(field.id, $event)"
           @keydown.enter="($event.target as HTMLInputElement).blur()"
         />
       </label>
@@ -163,8 +184,9 @@ const showText = computed(() => {
           inputmode="decimal"
           :value="values ? angle.toFixed(1) : ''"
           :disabled="!values"
-          title="Angle of the selection in degrees, counterclockwise (negative: clockwise); type a new angle to turn the selection to it around its center (0 when the selected shapes have different angles)"
+          title="Angle of the selection in degrees, counterclockwise (negative: clockwise); type a new angle to turn the selection to it around its center (0 when the selected shapes have different angles); mouse wheel: ±1°"
           @change="applyRotate"
+          @wheel.prevent="onRotateWheel"
           @keydown.enter="($event.target as HTMLInputElement).blur()"
         />
       </label>
@@ -263,10 +285,11 @@ Draw a square and select it
         max="100"
         step="5"
         :value="fireSettings.powerPercent"
-        title="Fire power, in % of the laser's maximum ($30); arrows or ↑/↓: 5% steps"
+        title="Fire power, in % of the laser's maximum ($30); arrows, ↑/↓ or mouse wheel: 5% steps"
         @change="onFirePowerChange"
         @keyup.up="onFirePowerChange"
         @keyup.down="onFirePowerChange"
+        @wheel.prevent="onFirePowerWheel"
         @keydown.enter="($event.target as HTMLInputElement).blur()"
       />
     </label>
