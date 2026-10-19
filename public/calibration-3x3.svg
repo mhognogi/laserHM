@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="520" viewBox="0 0 880 520" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="880" height="520" fill="#ffffff"/>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#444"/>
+    </marker>
+    <g id="dot">
+      <circle r="6" fill="#d92b2b" stroke="#fff" stroke-width="1.5"/>
+    </g>
+  </defs>
+
+  <text x="440" y="30" text-anchor="middle" font-size="20" font-weight="600" fill="#222">Camera calibration with 9 points</text>
+
+  <!-- ===== Left: camera image, barrel distortion ===== -->
+  <g transform="translate(40,70)">
+    <text x="180" y="-10" text-anchor="middle" font-size="15" font-weight="600" fill="#333">Camera image (with lens distortion)</text>
+    <rect x="0" y="0" width="360" height="360" fill="#3b3b3b" rx="4"/>
+    <!-- Quarters with curved outer edges -->
+    <path d="M60,60 Q120,45 180,45 L180,180 L45,180 Q45,120 60,60 Z" fill="#4e79a7" fill-opacity="0.55"/>
+    <path d="M180,45 Q240,45 300,60 Q315,120 315,180 L180,180 Z" fill="#59a14f" fill-opacity="0.55"/>
+    <path d="M180,180 L315,180 Q315,240 300,300 Q240,315 180,315 Z" fill="#f28e2b" fill-opacity="0.55"/>
+    <path d="M45,180 L180,180 L180,315 Q120,315 60,300 Q45,240 45,180 Z" fill="#b07aa1" fill-opacity="0.55"/>
+    <!-- The cut square as the camera sees it -->
+    <path d="M60,60 Q180,30 300,60 Q330,180 300,300 Q180,330 60,300 Q30,180 60,60 Z" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+    <path d="M45,180 H315 M180,45 V315" stroke="#ffffff" stroke-width="1" stroke-dasharray="4 3" opacity="0.8"/>
+    <!-- What the 4-corner method assumes: straight edges -->
+    <rect x="60" y="60" width="240" height="240" fill="none" stroke="#ffd84d" stroke-width="1.5" stroke-dasharray="6 4"/>
+    <!-- Error at the middle of the sides -->
+    <line x1="300" y1="180" x2="315" y2="180" stroke="#ffd84d" stroke-width="3"/>
+
+    <text x="120" y="122" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">H1</text>
+    <text x="245" y="122" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">H2</text>
+    <text x="245" y="252" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">H3</text>
+    <text x="120" y="252" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">H4</text>
+
+    <!-- The 9 clicks, in order -->
+    <g font-size="12" font-weight="700" fill="#fff">
+      <use href="#dot" x="60" y="300"/><text x="48" y="322">1</text>
+      <use href="#dot" x="300" y="300"/><text x="306" y="322">2</text>
+      <use href="#dot" x="300" y="60"/><text x="306" y="50">3</text>
+      <use href="#dot" x="60" y="60"/><text x="44" y="50">4</text>
+      <use href="#dot" x="180" y="315"/><text x="176" y="338">5</text>
+      <use href="#dot" x="315" y="180"/><text x="326" y="176">6</text>
+      <use href="#dot" x="180" y="45"/><text x="176" y="32">7</text>
+      <use href="#dot" x="45" y="180"/><text x="22" y="176">8</text>
+      <use href="#dot" x="180" y="180"/><text x="188" y="198">9</text>
+    </g>
+  </g>
+
+  <!-- ===== Arrow ===== -->
+  <line x1="410" y1="250" x2="490" y2="250" stroke="#444" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="450" y="232" text-anchor="middle" font-size="12" fill="#444">each quarter:</text>
+  <text x="450" y="274" text-anchor="middle" font-size="12" fill="#444">its own perspective</text>
+
+  <!-- ===== Right: canvas, the real square 390×390 ===== -->
+  <g transform="translate(500,70)">
+    <text x="180" y="-10" text-anchor="middle" font-size="15" font-weight="600" fill="#333">Canvas (the real square, e.g. 390 × 390 mm)</text>
+    <rect x="0" y="0" width="360" height="360" fill="#f4f4f4" stroke="#bbb" rx="4"/>
+    <rect x="60" y="60" width="120" height="120" fill="#4e79a7" fill-opacity="0.55"/>
+    <rect x="180" y="60" width="120" height="120" fill="#59a14f" fill-opacity="0.55"/>
+    <rect x="180" y="180" width="120" height="120" fill="#f28e2b" fill-opacity="0.55"/>
+    <rect x="60" y="180" width="120" height="120" fill="#b07aa1" fill-opacity="0.55"/>
+    <rect x="60" y="60" width="240" height="240" fill="none" stroke="#222" stroke-width="2.5"/>
+    <path d="M60,180 H300 M180,60 V300" stroke="#222" stroke-width="1" stroke-dasharray="4 3"/>
+
+    <text x="120" y="126" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">H1</text>
+    <text x="240" y="126" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">H2</text>
+    <text x="240" y="246" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">H3</text>
+    <text x="120" y="246" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">H4</text>
+
+    <use href="#dot" x="60" y="300"/><use href="#dot" x="300" y="300"/>
+    <use href="#dot" x="300" y="60"/><use href="#dot" x="60" y="60"/>
+    <use href="#dot" x="180" y="300"/><use href="#dot" x="300" y="180"/>
+    <use href="#dot" x="180" y="60"/><use href="#dot" x="60" y="180"/>
+    <use href="#dot" x="180" y="180"/>
+
+    <!-- Bed coordinates of the points (square cut at the origin) -->
+    <g font-size="11" fill="#555">
+      <text x="56" y="318" text-anchor="end">0, 0</text>
+      <text x="180" y="318" text-anchor="middle">195, 0</text>
+      <text x="304" y="318">390, 0</text>
+      <text x="306" y="176">390, 195</text>
+      <text x="304" y="52">390, 390</text>
+      <text x="180" y="50" text-anchor="middle">195, 390</text>
+      <text x="56" y="52" text-anchor="end">0, 390</text>
+      <text x="54" y="176" text-anchor="end">0, 195</text>
+      <text x="186" y="196">195, 195</text>
+    </g>
+  </g>
+
+  <!-- ===== Legend ===== -->
+  <g transform="translate(40,460)" font-size="13" fill="#333">
+    <circle cx="6" cy="0" r="6" fill="#d92b2b"/>
+    <text x="18" y="4">clicks 1–9, in order: the corners (1–4), the middles of the sides (5–8), the center (9)</text>
+    <line x1="0" y1="24" x2="14" y2="24" stroke="#c9a000" stroke-width="2" stroke-dasharray="6 4"/>
+    <text x="18" y="28">with only the 4 corners the sides are taken as straight: the error left at the middles (solid yellow)</text>
+  </g>
+</svg>

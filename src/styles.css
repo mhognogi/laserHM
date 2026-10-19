@@ -1,80 +1,49 @@
+/* App colors, defined once and used in components via var(--name).
+   The dark theme redefines them below. */
 :root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
+  --text: #1f1f1f;
+  --muted: #6b6b6b;
+  --panel: #f3f3f3;
+  --canvas: #e4e4e4;
+  --bed: #ffffff;
+  --button: #ffffff;
+  --hover: #e2e2e2;
+  --border: #d4d4d4;
+  --border-strong: #b5b5b5;
+  --grid: #ececec;
+  --grid-major: #d0d0d0;
+  --accent: #396cd8;
+  --accent-soft: #dbe5fa;
+  --danger: #d33a3a;
+  --shape: #000000;
 
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-}
-
-.container {
-  margin: 0;
-  padding-top: 10vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
-}
-
-.row {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-  outline: none;
-  cursor: pointer;
-}
-
-button:hover:enabled {
-  border-color: #396cd8;
-}
-
-button:active:enabled {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
-}
-
-button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-#stop:enabled {
-  background-color: #d33;
-  color: #ffffff;
+  font-family: "Segoe UI", Inter, Arial, sans-serif;
+  font-size: 13px;
+  color: var(--text);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
+    --text: #e8e8e8;
+    --muted: #9a9a9a;
+    --panel: #2b2b2b;
+    --canvas: #1e1e1e;
+    --bed: #262626;
+    --button: #383838;
+    --hover: #3a3a3a;
+    --border: #3d3d3d;
+    --border-strong: #555555;
+    --grid: #303030;
+    --grid-major: #444444;
+    --accent: #5b8def;
+    --accent-soft: #2c3a57;
+    --shape: #e8e8e8;
   }
+}
 
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-
-  button:active:enabled {
-    background-color: #0f0f0f69;
-  }
+body {
+  margin: 0;
+  background: var(--canvas);
+  /* Desktop app: no accidental text selection in the UI. */
+  user-select: none;
 }

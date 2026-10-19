@@ -1,0 +1,35 @@
+<!-- Alternative app icon: a laser beam (445 nm blue) hitting a workpiece.
+     Generate all icon sizes with: npm run tauri icon src-tauri/icons/icon-laser-source.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="impact">
+      <stop offset="0" stop-color="#ffffff" />
+      <stop offset="0.25" stop-color="#9aa8ff" />
+      <stop offset="0.6" stop-color="#001AFF" stop-opacity="0.6" />
+      <stop offset="1" stop-color="#001AFF" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Laser head and nozzle -->
+  <rect x="362" y="60" width="300" height="230" rx="36" fill="#2b2b2b" />
+  <polygon points="432,290 592,290 556,380 468,380" fill="#3d3d3d" />
+
+  <!-- Beam: soft glow, then the bright core -->
+  <rect x="472" y="380" width="80" height="400" fill="#001AFF" opacity="0.3" />
+  <rect x="488" y="380" width="48" height="400" fill="#001AFF" />
+
+  <!-- Workpiece (wood) -->
+  <rect x="110" y="770" width="804" height="120" rx="20" fill="#b9854f" />
+  <rect x="110" y="770" width="804" height="24" rx="12" fill="#cf9b63" />
+
+  <!-- Sparks -->
+  <g stroke="#6f80ff" stroke-width="18" stroke-linecap="round">
+    <line x1="430" y1="740" x2="330" y2="660" />
+    <line x1="594" y1="740" x2="694" y2="660" />
+    <line x1="410" y1="770" x2="280" y2="745" />
+    <line x1="614" y1="770" x2="744" y2="745" />
+  </g>
+
+  <!-- Impact glow -->
+  <circle cx="512" cy="775" r="150" fill="url(#impact)" />
+</svg>

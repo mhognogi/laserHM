@@ -1,0 +1,14 @@
+<!-- Source of the app icon: "HM" in the blue of a 445 nm laser diode.
+     Regenerate all icon sizes with: npm run tauri icon src-tauri/icons/icon-source.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <g fill="#001AFF">
+    <!-- H -->
+    <rect x="80" y="212" width="110" height="600" />
+    <rect x="350" y="212" width="110" height="600" />
+    <rect x="80" y="457" width="380" height="110" />
+    <!-- M -->
+    <rect x="540" y="212" width="110" height="600" />
+    <rect x="834" y="212" width="110" height="600" />
+    <polygon points="540,212 650,212 742,420 834,212 944,212 742,650" />
+  </g>
+</svg>

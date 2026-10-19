@@ -1,0 +1,52 @@
+<!-- Alternative app icon: a diagonal 445 nm laser beam ending in a bright impact point,
+     on a dark background. Generate all sizes with:
+     npm run tauri icon src-tauri/icons/icon-impact-source.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="background" cx="0.45" cy="0.55" r="0.75">
+      <stop offset="0" stop-color="#0b1250" />
+      <stop offset="1" stop-color="#000008" />
+    </radialGradient>
+    <radialGradient id="halo">
+      <stop offset="0" stop-color="#3a55ff" stop-opacity="0.9" />
+      <stop offset="0.4" stop-color="#001AFF" stop-opacity="0.45" />
+      <stop offset="1" stop-color="#001AFF" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="core">
+      <stop offset="0" stop-color="#ffffff" />
+      <stop offset="0.45" stop-color="#dfe4ff" />
+      <stop offset="1" stop-color="#7d90ff" stop-opacity="0" />
+    </radialGradient>
+    <filter id="blur-wide" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="22" />
+    </filter>
+    <filter id="blur-soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" />
+    </filter>
+    <!-- Everything is cut to the rounded background, so the glow never spills past its corners. -->
+    <clipPath id="rounded">
+      <rect width="1024" height="1024" rx="180" />
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#rounded)">
+  <!-- Dark rounded background -->
+  <rect width="1024" height="1024" fill="url(#background)" />
+
+  <!-- Beam from the top-right corner to the impact point: wide glow, then the bright core -->
+  <line x1="1000" y1="24" x2="420" y2="604" stroke="#001AFF" stroke-width="110" stroke-linecap="round" opacity="0.45" filter="url(#blur-wide)" />
+  <line x1="1000" y1="24" x2="420" y2="604" stroke="#3d5cff" stroke-width="34" stroke-linecap="round" filter="url(#blur-soft)" />
+  <line x1="1000" y1="24" x2="420" y2="604" stroke="#c9d2ff" stroke-width="10" stroke-linecap="round" />
+
+  <!-- Impact: large halo, star-shaped flare, white-hot core -->
+  <circle cx="420" cy="604" r="360" fill="url(#halo)" />
+  <g stroke="#b4c0ff" stroke-linecap="round" opacity="0.8" filter="url(#blur-soft)">
+    <line x1="160" y1="604" x2="680" y2="604" stroke-width="10" />
+    <line x1="420" y1="344" x2="420" y2="864" stroke-width="10" />
+    <line x1="270" y1="454" x2="570" y2="754" stroke-width="6" />
+    <line x1="270" y1="754" x2="570" y2="454" stroke-width="6" />
+  </g>
+  <circle cx="420" cy="604" r="150" fill="url(#core)" filter="url(#blur-soft)" />
+  <circle cx="420" cy="604" r="55" fill="#ffffff" />
+  </g>
+</svg>
