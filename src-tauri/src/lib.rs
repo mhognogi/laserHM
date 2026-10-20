@@ -35,6 +35,7 @@ pub fn run() {
             commands::set_work_area,
             commands::set_check_before_start,
             commands::set_job_settings,
+            commands::accept_safety,
             commands::set_camera_calibration,
             commands::start,
             commands::simulate,

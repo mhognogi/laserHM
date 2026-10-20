@@ -32,6 +32,8 @@ export interface Status {
   cameraCalibration: CameraCalibration | null;
   /** The laser panel's last power, speed and passes (saved between sessions); null until first changed. */
   job: JobSettings | null;
+  /** The safety warning was accepted; null until Rust first answers (so it does not flash). */
+  safetyAccepted: boolean | null;
 }
 
 /** Same shape as the `CameraCalibration` struct in src-tauri/src/settings.rs. */
@@ -57,6 +59,7 @@ export const status = reactive<Status>({
   checkBeforeStart: false,
   cameraCalibration: null,
   job: null,
+  safetyAccepted: null,
 });
 
 // Rust announces every state change; on startup we ask for the current state.
@@ -113,6 +116,7 @@ type Command =
   | "stop"
   | "set_check_before_start"
   | "set_job_settings"
+  | "accept_safety"
   | "set_camera_calibration";
 
 export async function call(command: Command, args?: object) {

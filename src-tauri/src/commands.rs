@@ -57,6 +57,18 @@ pub fn set_check_before_start(app: AppHandle, state: State<AppState>, enabled: b
     Ok(())
 }
 
+/// Saves that the safety warning was accepted: it no longer shows at startup.
+#[tauri::command]
+pub fn accept_safety(app: AppHandle, state: State<AppState>) -> Result<(), String> {
+    {
+        let mut settings = state.settings.lock().unwrap();
+        settings.safety_accepted = true;
+        settings::save(&app, &settings)?;
+    }
+    state.notify(&app);
+    Ok(())
+}
+
 /// Saves the laser panel's power, speed and passes, so the next run starts with them.
 /// Not announced to the UI: it already shows them.
 #[tauri::command]

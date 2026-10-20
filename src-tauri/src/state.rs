@@ -78,6 +78,8 @@ pub struct Status {
     camera_calibration: Option<CameraCalibration>,
     /// The laser panel's last power, speed and passes (saved between sessions).
     job: Option<JobDefaults>,
+    /// The safety warning was accepted (saved between sessions).
+    safety_accepted: bool,
 }
 
 impl AppState {
@@ -119,6 +121,7 @@ impl AppState {
             check_before_start: settings.check_before_start,
             camera_calibration: settings.camera_calibration.clone(),
             job: settings.job,
+            safety_accepted: settings.safety_accepted,
         }
     }
 

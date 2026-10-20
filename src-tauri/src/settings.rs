@@ -47,6 +47,8 @@ pub struct Settings {
     pub camera_calibration: Option<CameraCalibration>,
     /// The laser panel's last power, speed and passes; `None` until first changed.
     pub job: Option<JobDefaults>,
+    /// The safety warning was read and accepted ("I understand"); it shows at startup until then.
+    pub safety_accepted: bool,
 }
 
 fn path(app: &AppHandle) -> Result<PathBuf, String> {

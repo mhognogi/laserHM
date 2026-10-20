@@ -75,6 +75,18 @@ const canPause = computed(
   () => status.busy && !status.paused && (status.task === "cut" || status.task === "simulate"),
 );
 const canStop = computed(() => status.busy);
+
+// Pause stops at once, wherever the focus is (capture: before every other handler).
+// Not Esc: it already cancels many things on the canvas.
+function onStopKey(event: KeyboardEvent) {
+  if (event.key === "Pause" && canStop.value) {
+    event.preventDefault();
+    event.stopPropagation();
+    call("stop");
+  }
+}
+window.addEventListener("keydown", onStopKey, true);
+onUnmounted(() => window.removeEventListener("keydown", onStopKey, true));
 const canHome = idle;
 const canSimulate = computed(() => idle.value && hasSelection.value);
 
@@ -251,7 +263,7 @@ function onChecksClosed() {
       <button
         class="stop"
         :disabled="!canStop"
-        title="Stop immediately (soft reset), then unlock the laser"
+        title="Stop immediately (soft reset), then unlock the laser; shortcut: Pause"
         @click="call('stop')"
       >
         <Square :size="16" /> Stop

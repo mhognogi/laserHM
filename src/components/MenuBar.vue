@@ -9,6 +9,7 @@ import { redo, undo } from "../history";
 import { newProject, openProject, saveProject, saveProjectAs } from "../project";
 import AboutDialog from "./AboutDialog.vue";
 import HowToDialog from "./HowToDialog.vue";
+import SafetyDialog from "./SafetyDialog.vue";
 import AdjustImageDialog from "./AdjustImageDialog.vue";
 import MaterialTestDialog from "./MaterialTestDialog.vue";
 
@@ -20,6 +21,7 @@ type Item = { name: string; title: string; action: () => void; missing?: string 
 
 const about = ref(false);
 const howTo = ref(false);
+const safety = ref(false);
 
 /** The hidden file picker behind File > Import. */
 const fileInput = ref<HTMLInputElement>();
@@ -97,6 +99,7 @@ const menus = computed<{ name: string; title: string; items?: Item[] }[]>(() => 
     title: "App information",
     items: [
       { name: "How to use", title: "Instructions for using the app", action: () => (howTo.value = true) },
+      { name: "Safety", title: "Laser safety warnings", action: () => (safety.value = true) },
       { name: "About laserHM", title: "Version and author of the app", action: () => (about.value = true) },
     ],
   },
@@ -168,6 +171,12 @@ onUnmounted(() => {
          class from App.vue (full-width) applies to it. -->
     <AboutDialog v-if="about" @close="about = false" />
     <HowToDialog v-if="howTo" @close="howTo = false" />
+    <!-- At the first start (until accepted), and from Help > Safety. -->
+    <SafetyDialog
+      v-if="safety || status.safetyAccepted === false"
+      :first-run="status.safetyAccepted === false"
+      @close="safety = false"
+    />
     <MaterialTestDialog v-if="materialTestOpen" @close="materialTestOpen = false" />
     <!-- :key: reopened on another image, the dialog starts from that image's settings. -->
     <AdjustImageDialog v-if="adjustImageId !== null" :key="adjustImageId" />
