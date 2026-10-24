@@ -16,8 +16,9 @@ import { status } from "./laser";
 
 /** Size of a new text: the height of its capitals, in mm (like LightBurn). */
 const DEFAULT_SIZE = 19;
-/** Font picked first, if it is installed. */
-const DEFAULT_FONT = "Arial";
+/** Font picked first: the first of these installed (Arial on Windows; on Linux usually
+ *  Liberation Sans, Arial's twin, or DejaVu Sans). Same list as DEFAULT_FONTS in text.rs. */
+const DEFAULT_FONTS = ["Arial", "Liberation Sans", "DejaVu Sans"];
 
 /** The installed fonts, loaded once from Rust. */
 export const fonts = ref<FontInfo[]>([]);
@@ -29,7 +30,8 @@ export const textSettings = reactive({ font: null as FontInfo | null, size: DEFA
 export async function loadFonts() {
   if (fonts.value.length > 0) return;
   fonts.value = await invoke<FontInfo[]>("list_fonts");
-  textSettings.font ??= fonts.value.find((font) => font.name === DEFAULT_FONT) ?? fonts.value[0] ?? null;
+  const preferred = DEFAULT_FONTS.map((name) => fonts.value.find((font) => font.name === name)).find(Boolean);
+  textSettings.font ??= preferred ?? fonts.value[0] ?? null;
 }
 
 /** Same as the Rust `TextOutline`: the unit is a capital's height, the origin the first line's start. */

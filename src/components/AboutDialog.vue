@@ -25,7 +25,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
   <div class="backdrop" @pointerdown.self="emit('close')">
     <div class="about">
       <img :src="icon" alt="" />
-      <div class="name">laserHM</div>
+      <div class="name">LaserHM</div>
       <div>Version {{ version }}</div>
       <div class="muted">Design and cutting for GRBL diode lasers</div>
       <div class="muted">© 2026 Marius Hognogi</div>

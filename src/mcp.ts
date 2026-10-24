@@ -222,7 +222,7 @@ async function run(id: number, tool: string, args: Args) {
     text = await handler(args ?? {});
   } catch (error) {
     ok = false;
-    text = error instanceof ToolError ? error.message : `laserHM error: ${String(error)}`;
+    text = error instanceof ToolError ? error.message : `LaserHM error: ${String(error)}`;
   }
   await invoke("mcp_respond", { id, ok, text });
 }

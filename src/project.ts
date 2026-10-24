@@ -13,7 +13,7 @@ import { status } from "./laser";
 
 /** The content of a .lhm file. */
 interface ProjectFile {
-  format: "laserHM project";
+  format: "LaserHM project";
   version: 1;
   shapes: Shape[];
   /** Pictures by the id the image shapes use. */
@@ -26,7 +26,7 @@ interface SessionFile extends ProjectFile {
   unsaved: boolean;
 }
 
-const FILTERS = [{ name: "laserHM project", extensions: ["lhm"] }];
+const FILTERS = [{ name: "LaserHM project", extensions: ["lhm"] }];
 
 /** The open project's file, or null for a new one never saved. */
 export const projectPath = ref<string | null>(null);
@@ -37,12 +37,12 @@ export const unsaved = ref(false);
 let loading = false;
 
 function content(): ProjectFile {
-  return { format: "laserHM project", version: 1, shapes: editor.shapes, images: imagesOf(editor.shapes) };
+  return { format: "LaserHM project", version: 1, shapes: editor.shapes, images: imagesOf(editor.shapes) };
 }
 
 /** Puts a project's shapes and pictures in place of the current ones. */
 async function load(file: ProjectFile, path: string | null) {
-  if (file.format !== "laserHM project") throw "This is not a laserHM project";
+  if (file.format !== "LaserHM project") throw "This is not a LaserHM project";
   loading = true;
   await restoreImages(file.shapes, file.images ?? {});
   replaceShapes(file.shapes);
@@ -62,7 +62,7 @@ function showError(error: unknown) {
 async function mayDiscard(): Promise<boolean> {
   if (!unsaved.value) return true;
   return ask("The changes to this project are not saved. Discard them?", {
-    title: "laserHM",
+    title: "LaserHM",
     kind: "warning",
   });
 }
@@ -70,7 +70,7 @@ async function mayDiscard(): Promise<boolean> {
 /** File > New: an empty canvas. */
 export async function newProject() {
   if (!(await mayDiscard())) return;
-  await load({ format: "laserHM project", version: 1, shapes: [], images: {} }, null);
+  await load({ format: "LaserHM project", version: 1, shapes: [], images: {} }, null);
   unsaved.value = false;
 }
 
@@ -108,11 +108,11 @@ export async function saveProjectAs() {
 
 // ----- Window title -----
 
-/** "laserHM 0.1.0 - name.lhm*": the project's name, * when it has unsaved changes. */
+/** "LaserHM 0.1.0 - name.lhm*": the project's name, * when it has unsaved changes. */
 async function updateTitle() {
   const version = await getVersion();
   const name = projectPath.value?.split(/[\\/]/).pop() ?? "Untitled";
-  await getCurrentWindow().setTitle(`laserHM ${version} - ${name}${unsaved.value ? "*" : ""}`);
+  await getCurrentWindow().setTitle(`LaserHM ${version} - ${name}${unsaved.value ? "*" : ""}`);
 }
 watch([projectPath, unsaved], updateTitle);
 

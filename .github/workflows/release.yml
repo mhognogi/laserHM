@@ -1,8 +1,8 @@
-# Builds laserHM installers and attaches them to a draft GitHub Release.
+# Builds LaserHM installers and attaches them to a draft GitHub Release.
 # Runs when a version tag (e.g. v0.1.0) is pushed.
-# For now Windows only: the app does not work fully on macOS and Linux yet (fonts are
-# looked up in Windows' folders, the Claude Desktop bridge uses %APPDATA%).
-# To build them again, uncomment their lines in the matrix below.
+# Windows and Linux. macOS is off: it needs a Mac to test on and, for users not to be
+# blocked by Gatekeeper, an Apple Developer account to sign the app. To build it,
+# uncomment its lines in the matrix below.
 name: Release
 
 on:
@@ -25,8 +25,9 @@ jobs:
           #   args: '--target aarch64-apple-darwin'
           # - platform: macos-latest # Intel Macs
           #   args: '--target x86_64-apple-darwin'
-          # - platform: ubuntu-22.04
-          #   args: ''
+          # Ubuntu 22.04: packages built on it also run on newer Linux (24.04, 26.04…).
+          - platform: ubuntu-22.04
+            args: ''
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -59,7 +60,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__ # __VERSION__ is replaced with the app version
-          releaseName: 'laserHM v__VERSION__'
+          releaseName: 'LaserHM v__VERSION__'
           releaseBody: 'Download the installer for your system from the Assets below.'
           releaseDraft: true
           prerelease: false

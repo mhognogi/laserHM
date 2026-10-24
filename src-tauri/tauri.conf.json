@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "laserhm",
+  "productName": "LaserHM",
   "version": "0.1.1",
   "identifier": "com.mhogn.laserhm",
   "build": {
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "laserHM 0.1.1",
+        "title": "LaserHM 0.1.1",
         "width": 1280,
         "height": 800,
         "minWidth": 900,

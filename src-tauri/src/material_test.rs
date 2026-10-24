@@ -182,15 +182,9 @@ fn format_value(value: f64) -> String {
     }
 }
 
-/// Arial (on every Windows), otherwise the first installed font.
+/// The default font (Arial on Windows, see `text::DEFAULT_FONTS`).
 fn label_font() -> Result<text::FontInfo, String> {
-    let fonts = text::installed_fonts();
-    fonts
-        .iter()
-        .find(|font| font.name == "Arial")
-        .or_else(|| fonts.first())
-        .cloned()
-        .ok_or_else(|| "No font found for the labels".to_string())
+    text::default_font().ok_or_else(|| "No font found for the labels".to_string())
 }
 
 /// The outlines of `content` with capitals `size` mm tall.

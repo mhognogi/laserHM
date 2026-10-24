@@ -50,7 +50,7 @@ const menus = computed<{ name: string; title: string; items?: Item[] }[]>(() => 
     title: "Projects and images",
     items: [
       { name: "New", shortcut: "Ctrl+N", title: "Start an empty project", action: newProject },
-      { name: "Open…", shortcut: "Ctrl+O", title: "Open a laserHM project (.lhm)", action: openProject },
+      { name: "Open…", shortcut: "Ctrl+O", title: "Open a LaserHM project (.lhm)", action: openProject },
       { name: "Save", shortcut: "Ctrl+S", title: "Save the project to its file", action: saveProject },
       {
         name: "Save As…",
@@ -100,7 +100,7 @@ const menus = computed<{ name: string; title: string; items?: Item[] }[]>(() => 
     items: [
       { name: "How to use", title: "Instructions for using the app", action: () => (howTo.value = true) },
       { name: "Safety", title: "Laser safety warnings", action: () => (safety.value = true) },
-      { name: "About laserHM", title: "Version and author of the app", action: () => (about.value = true) },
+      { name: "About LaserHM", title: "Version and author of the app", action: () => (about.value = true) },
     ],
   },
 ]);

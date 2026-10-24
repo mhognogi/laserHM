@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use i_overlay::core::fill_rule::FillRule;
@@ -44,7 +44,9 @@ pub fn installed_fonts() -> Vec<FontInfo> {
     FONTS.get_or_init(scan_fonts).clone()
 }
 
-/// Fonts for all users (Windows\Fonts) and fonts installed only for this user.
+/// The folders with installed fonts: for all users and for this user only.
+/// Windows: Windows\Fonts and the user's Fonts folder. Linux: /usr/share/fonts,
+/// /usr/local/share/fonts, ~/.local/share/fonts and ~/.fonts (with their subfolders).
 fn font_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     if let Ok(windows) = std::env::var("WINDIR") {
@@ -53,31 +55,70 @@ fn font_dirs() -> Vec<PathBuf> {
     if let Ok(local) = std::env::var("LOCALAPPDATA") {
         dirs.push(PathBuf::from(local).join("Microsoft").join("Windows").join("Fonts"));
     }
+    if cfg!(target_os = "linux") {
+        dirs.push(PathBuf::from("/usr/share/fonts"));
+        dirs.push(PathBuf::from("/usr/local/share/fonts"));
+        if let Ok(home) = std::env::var("HOME") {
+            dirs.push(PathBuf::from(&home).join(".local/share/fonts"));
+            dirs.push(PathBuf::from(&home).join(".fonts"));
+        }
+    }
     dirs
 }
 
+/// Subfolders followed at most this deep (Linux groups fonts in folders, e.g. truetype/dejavu).
+const MAX_FONT_DEPTH: usize = 4;
+
+/// The font files in `dir` and its subfolders.
+fn font_files(dir: &Path, depth: usize, files: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(dir) else { return };
+    for path in entries.flatten().map(|entry| entry.path()) {
+        if path.is_dir() {
+            if depth < MAX_FONT_DEPTH {
+                font_files(&path, depth + 1, files);
+            }
+            continue;
+        }
+        let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+        if ["ttf", "otf", "ttc", "otc"].contains(&extension.as_str()) {
+            files.push(path);
+        }
+    }
+}
+
 fn scan_fonts() -> Vec<FontInfo> {
+    let mut files = Vec::new();
+    for dir in font_dirs() {
+        font_files(&dir, 0, &mut files);
+    }
     // A BTreeMap keeps the names sorted and drops duplicates.
     let mut fonts = BTreeMap::new();
-    for dir in font_dirs() {
-        let Ok(entries) = fs::read_dir(&dir) else { continue };
-        for path in entries.flatten().map(|entry| entry.path()) {
-            let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-            if !["ttf", "otf", "ttc", "otc"].contains(&extension.as_str()) {
-                continue;
-            }
-            let Ok(data) = fs::read(&path) else { continue };
-            let faces = ttf_parser::fonts_in_collection(&data).unwrap_or(1);
-            for index in 0..faces {
-                let Ok(face) = Face::parse(&data, index) else { continue };
-                if let Some(name) = full_name(&face) {
-                    let path = path.to_string_lossy().into_owned();
-                    fonts.entry(name.clone()).or_insert(FontInfo { name, path, index });
-                }
+    for path in files {
+        let Ok(data) = fs::read(&path) else { continue };
+        let faces = ttf_parser::fonts_in_collection(&data).unwrap_or(1);
+        for index in 0..faces {
+            let Ok(face) = Face::parse(&data, index) else { continue };
+            if let Some(name) = full_name(&face) {
+                let path = path.to_string_lossy().into_owned();
+                fonts.entry(name.clone()).or_insert(FontInfo { name, path, index });
             }
         }
     }
     fonts.into_values().collect()
+}
+
+/// Fonts used when nothing else is chosen (new texts, Material Test labels): the first one
+/// installed. Arial is on every Windows; Linux usually has Liberation Sans (Arial's twin) or DejaVu.
+pub const DEFAULT_FONTS: [&str; 3] = ["Arial", "Liberation Sans", "DejaVu Sans"];
+
+/// The first of `DEFAULT_FONTS` that is installed, otherwise the first font found.
+pub fn default_font() -> Option<FontInfo> {
+    let fonts = installed_fonts();
+    DEFAULT_FONTS
+        .iter()
+        .find_map(|name| fonts.iter().find(|font| font.name == *name))
+        .or_else(|| fonts.first())
+        .cloned()
 }
 
 /// The face's full name (e.g. "Arial Bold"), in a form we can read.

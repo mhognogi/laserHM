@@ -1,10 +1,10 @@
-//! MCP (Model Context Protocol): lets Claude Desktop draw on laserHM's canvas.
+//! MCP (Model Context Protocol): lets Claude Desktop draw on LaserHM's canvas.
 //!
 //! Claude Desktop starts `laserhm.exe --mcp` (the bridge, `run_bridge`) and talks to it
 //! over stdin/stdout: JSON-RPC 2.0, one message per line. The bridge forwards each tool
-//! call to the running laserHM over a local TCP connection (127.0.0.1 only), proving
-//! itself with the secret token laserHM wrote to mcp.json in its config folder.
-//! laserHM hands the call to the UI (event "mcp-request"), which changes the canvas
+//! call to the running LaserHM over a local TCP connection (127.0.0.1 only), proving
+//! itself with the secret token LaserHM wrote to mcp.json in its config folder.
+//! LaserHM hands the call to the UI (event "mcp-request"), which changes the canvas
 //! and answers through `mcp_respond` (see src/mcp.ts).
 //!
 //! The tools only change the drawing: the laser itself (Start, Fire, Home, moves)
@@ -30,17 +30,17 @@ use tauri::{AppHandle, Emitter, Manager, State};
 const REQUEST_EVENT: &str = "mcp-request";
 /// How long a tool call may take in the UI (the first text loads the fonts, which is slow).
 const ANSWER_TIMEOUT: Duration = Duration::from_secs(60);
-/// The app's identifier (tauri.conf.json): its config folder is %APPDATA%\<identifier>.
+/// The app's identifier (tauri.conf.json): its config folder is named after it (see `app_config_dir`).
 const IDENTIFIER: &str = "com.mhogn.laserhm";
 
-/// Where the running laserHM listens, and its secret; in mcp.json.
+/// Where the running LaserHM listens, and its secret; in mcp.json.
 #[derive(Serialize, Deserialize)]
 struct Endpoint {
     port: u16,
     token: String,
 }
 
-/// A tool call, from the bridge to laserHM (one JSON line).
+/// A tool call, from the bridge to LaserHM (one JSON line).
 #[derive(Serialize, Deserialize)]
 struct ToolCall {
     token: String,
@@ -55,11 +55,25 @@ struct ToolAnswer {
     text: String,
 }
 
+/// LaserHM's config folder, found without Tauri (the bridge has no app), as Tauri finds it:
+/// Windows %APPDATA%\<identifier>; Linux $XDG_CONFIG_HOME/<identifier> or ~/.config/<identifier>.
+fn app_config_dir() -> Option<PathBuf> {
+    let base = if cfg!(windows) {
+        PathBuf::from(std::env::var_os("APPDATA")?)
+    } else {
+        match std::env::var_os("XDG_CONFIG_HOME").filter(|dir| !dir.is_empty()) {
+            Some(dir) => PathBuf::from(dir),
+            None => PathBuf::from(std::env::var_os("HOME")?).join(".config"),
+        }
+    };
+    Some(base.join(IDENTIFIER))
+}
+
 fn endpoint_file(config_dir: PathBuf) -> PathBuf {
     config_dir.join("mcp.json")
 }
 
-// ----- In laserHM: the local server -----
+// ----- In LaserHM: the local server -----
 
 /// The tool calls waiting for the UI's answer, by number.
 #[derive(Default)]
@@ -82,7 +96,7 @@ fn new_token() -> String {
 }
 
 /// Starts listening for the bridge on a free local port and writes mcp.json.
-/// Without it laserHM works as before, only Claude Desktop cannot reach it.
+/// Without it LaserHM works as before, only Claude Desktop cannot reach it.
 pub fn start(app: AppHandle) {
     let Ok(config_dir) = app.path().app_config_dir() else { return };
     let Ok(listener) = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)) else { return };
@@ -130,7 +144,7 @@ fn ask_ui(app: &AppHandle, call: ToolCall) -> ToolAnswer {
     let answer = match app.emit(REQUEST_EVENT, request) {
         Ok(()) => receiver.recv_timeout(ANSWER_TIMEOUT).unwrap_or(ToolAnswer {
             ok: false,
-            text: "laserHM did not answer in time".into(),
+            text: "LaserHM did not answer in time".into(),
         }),
         Err(error) => ToolAnswer { ok: false, text: error.to_string() },
     };
@@ -149,11 +163,11 @@ pub fn mcp_respond(state: State<McpState>, id: u64, ok: bool, text: String) {
 // ----- `laserhm.exe --mcp`: the bridge started by Claude Desktop -----
 
 /// What Claude reads first: how the tools describe the drawing.
-const INSTRUCTIONS: &str = "laserHM is a laser cutter/engraver app. These tools draw on its canvas, \
+const INSTRUCTIONS: &str = "LaserHM is a laser cutter/engraver app. These tools draw on its canvas, \
 which must be open on this computer. Coordinates are in mm on the machine's work area: origin at the \
 bottom-left corner, X to the right, Y up. Angles are in degrees, counterclockwise. Shapes are outlines \
 (the laser follows them). Call get_canvas first to see the work area and the shapes already there. \
-Every change can be undone in laserHM with Ctrl+Z. The tools never run the laser: cutting is started \
+Every change can be undone in LaserHM with Ctrl+Z. The tools never run the laser: cutting is started \
 only by the user.";
 
 /// The tools Claude can use; the UI runs them (src/mcp.ts).
@@ -190,9 +204,9 @@ fn tools() -> Value {
                     "text": { "type": "string" },
                     "x": { "type": "number", "description": "mm" },
                     "y": { "type": "number", "description": "mm" },
-                    "height": { "type": "number", "description": "Height of the capital letters, mm; default: the size set in laserHM" },
-                    "font": { "type": "string", "description": "Installed font name (see list_fonts); default: the font set in laserHM" },
-                    "welded": { "type": "boolean", "description": "Join overlapping letters into one outline (for script fonts); default: as set in laserHM" }
+                    "height": { "type": "number", "description": "Height of the capital letters, mm; default: the size set in LaserHM" },
+                    "font": { "type": "string", "description": "Installed font name (see list_fonts); default: the font set in LaserHM" },
+                    "welded": { "type": "boolean", "description": "Join overlapping letters into one outline (for script fonts); default: as set in LaserHM" }
                 },
                 "required": ["text", "x", "y"]
             }
@@ -224,7 +238,7 @@ fn tools() -> Value {
         },
         {
             "name": "select",
-            "description": "Selects these shapes in laserHM (an empty list deselects all).",
+            "description": "Selects these shapes in LaserHM (an empty list deselects all).",
             "inputSchema": { "type": "object", "properties": { "ids": ids }, "required": ["ids"] }
         },
         {
@@ -295,10 +309,10 @@ fn tools() -> Value {
     ])
 }
 
-/// Sends a tool call to the running laserHM and returns its answer.
+/// Sends a tool call to the running LaserHM and returns its answer.
 fn call_laserhm(tool: &str, arguments: Value) -> Result<ToolAnswer, String> {
-    let not_running = || "laserHM is not running: open it, then try again".to_string();
-    let config_dir = std::env::var_os("APPDATA").map(|dir| PathBuf::from(dir).join(IDENTIFIER)).ok_or_else(not_running)?;
+    let not_running = || "LaserHM is not running: open it, then try again".to_string();
+    let config_dir = app_config_dir().ok_or_else(not_running)?;
     let text = fs::read_to_string(endpoint_file(config_dir)).map_err(|_| not_running())?;
     let endpoint: Endpoint = serde_json::from_str(&text).map_err(|_| not_running())?;
     let address = SocketAddr::from((Ipv4Addr::LOCALHOST, endpoint.port));
@@ -333,7 +347,7 @@ pub fn run_bridge() {
                 // Answer with the version Claude Desktop asked for.
                 "protocolVersion": message["params"]["protocolVersion"],
                 "capabilities": { "tools": {} },
-                "serverInfo": { "name": "laserHM", "version": env!("CARGO_PKG_VERSION") },
+                "serverInfo": { "name": "LaserHM", "version": env!("CARGO_PKG_VERSION") },
                 "instructions": INSTRUCTIONS
             })),
             "tools/list" => Ok(json!({ "tools": tools() })),

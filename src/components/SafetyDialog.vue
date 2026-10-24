@@ -42,13 +42,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
         <li>Materials can catch fire: keep a fire extinguisher at hand.</li>
         <li>To stop a job at once: the Stop button, or the Pause key.</li>
         <li>Your laser's manufacturer instructions come first.</li>
-        <li>laserHM is provided as is, without any warranty; you use it at your own risk.</li>
+        <li>LaserHM is provided as is, without any warranty; you use it at your own risk.</li>
       </ul>
       <div v-if="firstRun" class="footer">
         <label title="Tick to confirm you have read these warnings">
           <input v-model="understood" type="checkbox" /> I understand
         </label>
-        <button :disabled="!understood" title="Start using laserHM" @click="accept">OK</button>
+        <button :disabled="!understood" title="Start using LaserHM" @click="accept">OK</button>
       </div>
     </div>
   </div>
