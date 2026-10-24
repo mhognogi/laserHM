@@ -1,5 +1,8 @@
-# Builds laserHM installers for Windows, macOS and Linux and attaches them
-# to a draft GitHub Release. Runs when a version tag (e.g. v0.1.0) is pushed.
+# Builds laserHM installers and attaches them to a draft GitHub Release.
+# Runs when a version tag (e.g. v0.1.0) is pushed.
+# For now Windows only: the app does not work fully on macOS and Linux yet (fonts are
+# looked up in Windows' folders, the Claude Desktop bridge uses %APPDATA%).
+# To build them again, uncomment their lines in the matrix below.
 name: Release
 
 on:
@@ -18,12 +21,12 @@ jobs:
         include:
           - platform: windows-latest
             args: ''
-          - platform: macos-latest # Apple Silicon (M1+)
-            args: '--target aarch64-apple-darwin'
-          - platform: macos-latest # Intel Macs
-            args: '--target x86_64-apple-darwin'
-          - platform: ubuntu-22.04
-            args: ''
+          # - platform: macos-latest # Apple Silicon (M1+)
+          #   args: '--target aarch64-apple-darwin'
+          # - platform: macos-latest # Intel Macs
+          #   args: '--target x86_64-apple-darwin'
+          # - platform: ubuntu-22.04
+          #   args: ''
     runs-on: ${{ matrix.platform }}
 
     steps:
