@@ -15,6 +15,12 @@ use crate::state::{AppState, Laser, Status, Task, WorkArea};
 
 /// Event announcing what the laser is cutting with (see `run_task`).
 const CUT_PROGRESS_EVENT: &str = "cut-progress";
+/// Event with the head's position while a job runs, [x, y] in mm (see `Tracker`).
+const HEAD_POSITION_EVENT: &str = "head-position";
+/// Event with the pieces of the path just cut, laser on (see `Tracker`).
+const CUT_TRAIL_EVENT: &str = "cut-trail";
+/// Event: a new pass starts, the path cut so far is no longer shown (see `Tracker`).
+const CUT_TRAIL_RESET_EVENT: &str = "cut-trail-reset";
 /// Event announcing how far the running job is (see `run_task`).
 const JOB_PROGRESS_EVENT: &str = "job-progress";
 
@@ -254,12 +260,14 @@ fn run_task(
     let generation = laser.grbl.stop_generation();
     state.report(&app, running);
 
-    // After each line: its end time and where the head then is, to tell how far the job is.
+    // After each line: its end time and where the head then is, to tell how far the job is;
+    // and whether the laser burns along it, to color what was cut.
     let trace = job::trace(&gcode, laser.rapid_rate);
+    let burning = job::burning(&gcode);
     let shows_progress = matches!(task, Task::Cut | Task::Simulate);
 
     thread::spawn(move || {
-        let tracker = RefCell::new(Tracker::new(&app, trace, changes, shows_progress));
+        let tracker = RefCell::new(Tracker::new(&app, trace, burning, changes, shows_progress));
         let result = laser
             .grbl
             .run_with(
@@ -296,6 +304,12 @@ struct Tracker<'a> {
     app: &'a AppHandle,
     /// After each line: its end time (s) and the head's position.
     trace: Vec<(f64, (f64, f64))>,
+    /// For each line: whether the laser burns along it.
+    burning: Vec<bool>,
+    /// How far the path cut was already announced: a line, and how much of it (0 to 1).
+    trail_from: (usize, f64),
+    /// The lines where the 2nd, 3rd… pass starts: there the green path starts over.
+    pass_starts: Vec<usize>,
     total_seconds: f64,
     /// Where the cut settings change, the next first.
     changes: std::iter::Peekable<std::vec::IntoIter<(usize, job::CutProgress)>>,
@@ -309,13 +323,26 @@ impl<'a> Tracker<'a> {
     fn new(
         app: &'a AppHandle,
         trace: Vec<(f64, (f64, f64))>,
+        burning: Vec<bool>,
         changes: Vec<(usize, job::CutProgress)>,
         shows_progress: bool,
     ) -> Tracker<'a> {
         let total_seconds = trace.last().map(|line| line.0).unwrap_or(0.0);
+        // A pass starts where a higher pass number than any before appears.
+        let mut pass_starts = Vec::new();
+        let mut highest = 1;
+        for (line, progress) in &changes {
+            if progress.pass > highest {
+                highest = progress.pass;
+                pass_starts.push(*line);
+            }
+        }
         Tracker {
             app,
             trace,
+            burning,
+            trail_from: (0, 0.0),
+            pass_starts,
             total_seconds,
             changes: changes.into_iter().peekable(),
             shows_progress,
@@ -328,6 +355,7 @@ impl<'a> Tracker<'a> {
     fn start(&mut self, index: usize) {
         if self.current.is_none() {
             self.current = Some(index);
+            self.trail_from = (index, 0.0);
             self.announce(index, 0.0);
         }
     }
@@ -336,6 +364,7 @@ impl<'a> Tracker<'a> {
     /// it is on one of the lines from the current one up to there, the nearest to it.
     fn head_at(&mut self, accepted: usize, position: (f64, f64)) {
         let Some(current) = self.current else { return };
+        let _ = self.app.emit(HEAD_POSITION_EVENT, [position.0, position.1]);
         let last = accepted.clamp(current + 1, self.trace.len()) - 1;
         let mut best = (current, f64::INFINITY, 0.0);
         for line in current..=last {
@@ -351,9 +380,58 @@ impl<'a> Tracker<'a> {
         let start = if line == 0 { 0.0 } else { self.trace[line - 1].0 };
         let seconds = start + (self.trace[line].0 - start) * along;
         self.announce(line, seconds);
+        self.trail_to(line, along);
+    }
+
+    /// Where the head is on `line` after `along` of it (0 to 1).
+    fn point_on(&self, line: usize, along: f64) -> (f64, f64) {
+        let from = if line == 0 { self.trace[0].1 } else { self.trace[line - 1].1 };
+        let to = self.trace[line].1;
+        (from.0 + (to.0 - from.0) * along, from.1 + (to.1 - from.1) * along)
+    }
+
+    /// Announces the path cut since the last time, up to `along` of `line`: the pieces with
+    /// the laser on, as [x1, y1, x2, y2]. Pieces on one horizontal line (an image's row)
+    /// become one, from its leftmost to its rightmost point.
+    fn trail_to(&mut self, line: usize, along: f64) {
+        let (from_line, from_along) = self.trail_from;
+        if (line, along) <= (from_line, from_along) {
+            return;
+        }
+        let mut pieces: Vec<[f64; 4]> = Vec::new();
+        for current in from_line..=line {
+            // A new pass: what was cut before it is announced, then the green path starts over.
+            if current > from_line && self.pass_starts.contains(&current) {
+                if !pieces.is_empty() {
+                    let _ = self.app.emit(CUT_TRAIL_EVENT, std::mem::take(&mut pieces));
+                }
+                let _ = self.app.emit(CUT_TRAIL_RESET_EVENT, ());
+            }
+            let start = if current == from_line { from_along } else { 0.0 };
+            let end = if current == line { along } else { 1.0 };
+            if !self.burning[current] || end <= start {
+                continue;
+            }
+            let (a, b) = (self.point_on(current, start), self.point_on(current, end));
+            match pieces.last_mut() {
+                Some(last) if a.1 == b.1 && last[1] == a.1 && last[3] == a.1 => {
+                    let (low, high) = (a.0.min(b.0), a.0.max(b.0));
+                    *last = [last[0].min(last[2]).min(low), a.1, last[0].max(last[2]).max(high), a.1];
+                }
+                _ => pieces.push([a.0, a.1, b.0, b.1]),
+            }
+        }
+        self.trail_from = (line, along);
+        if !pieces.is_empty() {
+            let _ = self.app.emit(CUT_TRAIL_EVENT, pieces);
+        }
     }
 
     fn finish(&mut self) {
+        // The rest of the path: the head is at the end.
+        if let Some(last) = self.trace.len().checked_sub(1) {
+            self.trail_to(last, 1.0);
+        }
         if self.shows_progress {
             let progress = job::JobProgress { fraction: 1.0, total_seconds: self.total_seconds };
             let _ = self.app.emit(JOB_PROGRESS_EVENT, progress);

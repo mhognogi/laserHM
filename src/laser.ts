@@ -1,5 +1,5 @@
 // Laser state and commands to Rust, shared by all components.
-import { reactive, ref } from "vue";
+import { reactive, ref, shallowRef } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { CutSettings, Point, Shape, ShapeType } from "./editor";
@@ -89,7 +89,27 @@ export interface JobProgress {
 
 /** How far the last cut or simulation is (it stays full when done); null before the first. */
 export const jobProgress = ref<JobProgress | null>(null);
-listen<JobProgress>("job-progress", (event) => (jobProgress.value = event.payload));
+listen<JobProgress>("job-progress", (event) => {
+  // A new job (0 %) starts with no path cut yet, and the head's last place is forgotten.
+  if (event.payload.fraction === 0) {
+    cutTrail.value = [];
+    headPosition.value = null;
+  }
+  jobProgress.value = event.payload;
+});
+
+/**
+ * The path cut so far by the last job, laser on, as [x1, y1, x2, y2] pieces in mm: the canvas
+ * shows it in green. Replaced (not changed) on each addition, so the canvas redraws.
+ */
+export const cutTrail = shallowRef<number[][]>([]);
+listen<number[][]>("cut-trail", (event) => (cutTrail.value = [...cutTrail.value, ...event.payload]));
+// Each new pass shows its own progress: the shapes go back to their color first.
+listen("cut-trail-reset", () => (cutTrail.value = []));
+
+/** Where the laser head is while a job runs, in mm ([x, y]); null before the first report. */
+export const headPosition = ref<[number, number] | null>(null);
+listen<[number, number]>("head-position", (event) => (headPosition.value = event.payload));
 
 /** Power of the Fire button (laser on without moving), in % of the maximum; set in the top bar. */
 export const fireSettings = reactive({ powerPercent: 10 });

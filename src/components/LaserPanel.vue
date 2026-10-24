@@ -4,6 +4,8 @@ import { House, Pause, Play, Route, Square, X } from "lucide-vue-next";
 import {
   call,
   cutProgress,
+  cutTrail,
+  headPosition,
   jobProgress,
   setCheckBeforeStart,
   shapeData,
@@ -39,13 +41,16 @@ const ticker = setInterval(() => {
   lastTick = now;
 }, 1000);
 onUnmounted(() => clearInterval(ticker));
-// Any command that moves the head (Home, moving it, Start, Sim) empties the bar and the
-// times; Start and Sim then fill them again.
+// Any command that moves the head (Home, moving it, Start, Sim) empties the bar, the times
+// and the green path cut; Start and Sim then fill them again.
 watch(
   () => status.task,
   (task) => {
     if (task === "home" || task === "move" || task === "cut" || task === "simulate") {
       jobProgress.value = null;
+      cutTrail.value = [];
+      // The red dot waits for the new command's first position (Home shows none).
+      headPosition.value = null;
       elapsed.value = 0;
     }
   },
@@ -98,6 +103,26 @@ const message = computed(() => {
 
 /** Power, speed and passes for the next job; Rust checks the values on Start. */
 const job = reactive<JobSettings>({ powerPercent: 50, feed: 2000, passes: 1 });
+
+/**
+ * What the Power and Speed fields show, kept exactly as typed. Bound to the numbers directly,
+ * a field would be rewritten while typing: "100" → Backspace after the 1 → "00" became "0",
+ * the caret jumped to the end and the next digit made "03". Each valid text gives the job its
+ * number; a number changed elsewhere (saved values, mouse wheel) gives the text.
+ */
+const texts = reactive({ powerPercent: String(job.powerPercent), feed: String(job.feed) });
+const TEXT_FIELDS = ["powerPercent", "feed"] as const;
+watch(texts, () => {
+  for (const field of TEXT_FIELDS) {
+    const value = Number(texts[field]);
+    if (texts[field].trim() !== "" && Number.isFinite(value)) job[field] = value;
+  }
+});
+watch(job, () => {
+  for (const field of TEXT_FIELDS) {
+    if (Number(texts[field]) !== job[field]) texts[field] = String(job[field]);
+  }
+});
 
 // The values saved last time replace the defaults once, when Rust first sends them.
 let loaded = false;
@@ -330,12 +355,12 @@ function onChecksClosed() {
     <div v-else class="job-settings">
       <label>
         Power
+        <!-- Text fields bound to `texts`: what is typed stays as typed (see `texts`). -->
         <input
-          v-model.number="job.powerPercent"
+          v-model="texts.powerPercent"
           class="power"
-          type="number"
-          min="0"
-          max="100"
+          type="text"
+          inputmode="numeric"
           :disabled="status.busy"
           title="Laser power, in % of the maximum ($30); mouse wheel: ±1"
           @wheel.prevent="onWheel($event, 'powerPercent', 1, 0, 100)"
@@ -344,10 +369,10 @@ function onChecksClosed() {
       <label>
         Speed
         <input
-          v-model.number="job.feed"
+          v-model="texts.feed"
           class="speed"
-          type="number"
-          min="1"
+          type="text"
+          inputmode="numeric"
           :disabled="status.busy"
           title="Cutting speed, in mm/min; mouse wheel: ±100"
           @wheel.prevent="onWheel($event, 'feed', 100, 1, 9999)"
@@ -570,8 +595,8 @@ button:disabled {
   gap: 3px;
 }
 
-/* ch = width of one digit: power 3 digits, speed 4, passes 1.
-   The arrows of number inputs are hidden. */
+/* ch = width of one digit: power 3 digits, speed 4, passes 2.
+   The arrows of number inputs are hidden, except at Passes. */
 .job-settings input {
   padding: 2px 4px;
   border: 1px solid var(--border-strong);
@@ -583,10 +608,17 @@ button:disabled {
   appearance: textfield;
 }
 
-.job-settings input::-webkit-inner-spin-button,
-.job-settings input::-webkit-outer-spin-button {
+.job-settings input:not(.passes)::-webkit-inner-spin-button,
+.job-settings input:not(.passes)::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
+}
+
+/* Passes keeps its arrows (1 step per click), at its right edge: no padding there,
+   so they sit under the Verify box. */
+.job-settings input.passes {
+  appearance: auto;
+  padding-right: 0;
 }
 
 .job-settings input:disabled {
@@ -603,8 +635,9 @@ button:disabled {
   width: 4ch;
 }
 
+/* 2 digits, the left padding and the arrows (about 13 px). */
 .job-settings .passes {
-  width: 2ch;
+  width: calc(2ch + 17px);
 }
 
 /* The locked fields showing the cut's current values: readable, room for "12.5" or "1/2". */

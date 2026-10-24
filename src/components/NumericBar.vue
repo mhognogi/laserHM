@@ -3,6 +3,8 @@ import { computed } from "vue";
 import {
   Camera,
   CameraOff,
+  FlipHorizontal2,
+  FlipVertical2,
   Focus,
   Scan,
   ZoomIn,
@@ -20,6 +22,7 @@ import {
 } from "../camera";
 import {
   editor,
+  flipSelected,
   normalizeAngle,
   rotateSelected,
   selectedShapes,
@@ -201,6 +204,24 @@ const showText = computed(() => {
         <Scan :size="16" />
       </button>
       <button title="Zoom in" @click="zoomIn"><ZoomIn :size="16" /></button>
+    </div>
+
+    <!-- Flip: mirror the selection left-right or upside down, around its center. -->
+    <div class="zoom">
+      <button
+        :disabled="!values"
+        title="Flip horizontally: mirror the selection left-right"
+        @click="flipSelected('horizontal')"
+      >
+        <FlipHorizontal2 :size="16" />
+      </button>
+      <button
+        :disabled="!values"
+        title="Flip vertically: mirror the selection upside down"
+        @click="flipSelected('vertical')"
+      >
+        <FlipVertical2 :size="16" />
+      </button>
     </div>
 
     <!-- Camera overlay: on/off, which camera, and how transparent it is over the bed. -->

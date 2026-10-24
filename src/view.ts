@@ -5,10 +5,10 @@ import type { Box } from "./editor";
 
 /**
  * Room around the bed, in screen pixels: only what the axis labels need.
- * Left: Y labels ("400"); bottom: X labels; top: half of a Y label centered
- * on the top edge; right: half of an X label centered on the right edge.
+ * Left and bottom: the same, one label's height (the Y labels are turned upright);
+ * top and right: half of a label ("400") centered on the top or right edge.
  */
-export const MARGIN_PX = { left: 28, right: 10, top: 6, bottom: 18 };
+export const MARGIN_PX = { left: 18, right: 10, top: 10, bottom: 18 };
 
 /** Zoom limits, relative to "fit": from half the fit size to 50 times closer. */
 const MIN_ZOOM = 0.5;

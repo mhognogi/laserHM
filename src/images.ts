@@ -215,7 +215,11 @@ export function rasterize(shape: Shape, settings: ImageSettings): Raster | null 
   context.fillStyle = "#fff";
   context.fillRect(0, 0, columns, rows);
   context.imageSmoothingQuality = "high";
+  // A flipped image is drawn mirrored (Flip in the top bar).
+  const [sx, sy] = [shape.flipX ? -1 : 1, shape.flipY ? -1 : 1];
+  context.setTransform(sx, 0, 0, sy, shape.flipX ? columns : 0, shape.flipY ? rows : 0);
   context.drawImage(source.element, 0, 0, columns, rows);
+  context.setTransform(1, 0, 0, 1, 0, 0);
   const pixels = context.getImageData(0, 0, columns, rows).data;
 
   // Contrast as in common image editors: the factor stretches the grays around the middle.
@@ -276,7 +280,7 @@ const previews = new Map<string, string>();
 /** How the shape will be engraved, as shown on the canvas. */
 export function previewUrl(shape: Shape): string {
   const settings = shape.imageSettings ?? DEFAULT_IMAGE_SETTINGS;
-  const key = `${shape.imageId}|${JSON.stringify(settings)}`;
+  const key = `${shape.imageId}|${!!shape.flipX}|${!!shape.flipY}|${JSON.stringify(settings)}`;
   let url = previews.get(key);
   if (!url) {
     const raster = rasterize(shape, settings);

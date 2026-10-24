@@ -440,6 +440,31 @@ pub fn trace(gcode: &[String], rapid: f64) -> Vec<(f64, (f64, f64))> {
         .collect()
 }
 
+/// For each line: whether the laser burns along it (a G1 move with power above 0, after
+/// M3 or M4 and before M5), so the UI can color what was cut.
+pub fn burning(gcode: &[String]) -> Vec<bool> {
+    let (mut on, mut power) = (false, 0.0f64);
+    gcode
+        .iter()
+        .map(|line| {
+            let mut words = line.split_whitespace();
+            let code = words.next().unwrap_or("");
+            for word in line.split_whitespace() {
+                match word {
+                    "M3" | "M4" => on = true,
+                    "M5" => on = false,
+                    _ => {
+                        if let Some(value) = word.strip_prefix('S').and_then(|v| v.parse::<f64>().ok()) {
+                            power = value;
+                        }
+                    }
+                }
+            }
+            code == "G1" && on && power > 0.0
+        })
+        .collect()
+}
+
 /// How far the job is, announced to the UI while it runs.
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -788,6 +813,8 @@ mod tests {
     fn estimates_the_time_of_each_line() {
         let gcode: Vec<String> = ["G21 G90", "G0 X60 Y0", "G1 X60 Y10 F600", "G1 X60 Y20"].map(String::from).into();
         // 60 mm at 3600 mm/min = 1 s; then 10 mm at 600 mm/min = 1 s, twice.
+        let burns = burning(&["M4 S0", "G0 X1", "G1 X2 S500", "G1 X3", "G1 X4 S0", "M5 S0", "G1 X5 S500"].map(String::from));
+        assert_eq!(burns, [false, false, true, true, false, false, false]);
         let times: Vec<f64> = trace(&gcode, 3600.0).iter().map(|line| line.0).collect();
         assert_eq!(times, [0.0, 1.0, 2.0, 3.0]);
         assert_eq!(trace(&gcode, 3600.0)[3].1, (60.0, 20.0));

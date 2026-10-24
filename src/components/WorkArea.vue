@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
-import { call, status } from "../laser";
+import { call, cutTrail, headPosition, status } from "../laser";
 import {
   addShape,
   boxOf,
@@ -32,7 +32,7 @@ import {
   type Point,
   type Snapshot,
 } from "../editor";
-import { MARGIN_PX, origin, scale, svgSize, view, zoomAt, zoomToFit } from "../view";
+import { fitScale, MARGIN_PX, origin, scale, svgSize, view, zoomAt, zoomToFit } from "../view";
 import { editText, finishText, loadFonts, startText, textEdit, typeKey } from "../text";
 import { adjustImageId, previewUrl } from "../images";
 import { finishPen, pen, penDown, penMove, penUp } from "../pen";
@@ -282,6 +282,10 @@ const axisShadows = computed(() => {
     x: { x1: left, y1: axes.value.y, x2: right, y2: axes.value.y },
     // SVG's Y grows downwards.
     y: { x1: axes.value.x, y1: area.height - top, x2: axes.value.x, y2: area.height - bottom },
+    // The selection's real width and height in mm, written in the middle of each line.
+    width: (box.right - box.left).toFixed(1),
+    height: (box.top - box.bottom).toFixed(1),
+    middle: { x: (left + right) / 2, y: area.height - (bottom + top) / 2 },
   };
 });
 
@@ -333,6 +337,12 @@ const preview = computed(() => {
   const d = drag.value;
   return d && { type: d.type, ...shapeFromDrag(d.type, d.start, d.end, d.regular, d.fromCenter) };
 });
+
+/** The green path cut so far, as one SVG path (machine coordinates, in the Y-up group). */
+const trailPath = computed(() => cutTrail.value.map(([x1, y1, x2, y2]) => `M${x1} ${y1}L${x2} ${y2}`).join(""));
+
+/** Tooltip of a text with the Select tool. */
+const TEXT_TITLE = "Click to select, drag to move; double-click to edit the text";
 
 /** Tooltip of an image with the Select tool. */
 const IMAGE_TITLE = "Click to select, drag to move; double-click to adjust the image (mode, contrast, power, speed)";
@@ -406,7 +416,25 @@ function rotateArrow(box: Box, hx: number, hy: number): string {
 }
 
 /** The rotation in progress: the center it turns around, the pointer's starting angle, the shapes before. */
-const rotation = ref<{ pivot: Point; startAngle: number; snapshot: Snapshot } | null>(null);
+const rotation = ref<{ pivot: Point; startAngle: number; snapshot: Snapshot; cursor: string } | null>(null);
+
+/**
+ * The rotate cursor, as LightBurn's: an arc with an arrowhead at each end, curving around
+ * the corner it was grabbed at (hx, hy: -1 or 1, Y up). Drawn for the top-right corner and
+ * turned for the others; black with a white outline, so it shows on any background.
+ */
+function rotateCursor(hx: number, hy: number): string {
+  // Screen degrees (clockwise) from the top-right corner to this one.
+  const turn = hy > 0 ? (hx > 0 ? 0 : -90) : hx > 0 ? 90 : 180;
+  // Arc around (4, 20) from its top (4, 6) to its right (18, 20); a chevron at each end.
+  const shape = "M4 6A14 14 0 0 1 18 20M7 3L4 6L7 9M15 17L18 20L21 17";
+  const svgText =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" ` +
+    `stroke-linecap="round" stroke-linejoin="round"><g transform="rotate(${turn} 12 12)">` +
+    `<path d="${shape}" stroke="white" stroke-width="4"/><path d="${shape}" stroke="black" stroke-width="2"/>` +
+    `</g></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svgText)}") 12 12, crosshair`;
+}
 
 /** Direction from `pivot` to `point`, in degrees counterclockwise. */
 function angleFrom(pivot: Point, point: Point): number {
@@ -414,12 +442,12 @@ function angleFrom(pivot: Point, point: Point): number {
 }
 
 /** Starts turning the selection around the center of its box. */
-function startRotate(event: PointerEvent) {
+function startRotate(event: PointerEvent, cursor: string) {
   const box = selectionBox();
   if (!box) return;
   svg.value!.setPointerCapture(event.pointerId);
   const pivot = { x: (box.left + box.right) / 2, y: (box.bottom + box.top) / 2 };
-  rotation.value = { pivot, startAngle: angleFrom(pivot, toMachine(event)), snapshot: snapshotSelected() };
+  rotation.value = { pivot, startAngle: angleFrom(pivot, toMachine(event)), snapshot: snapshotSelected(), cursor };
 }
 
 /** The shapes turn by as much as the pointer has turned around the center. */
@@ -465,6 +493,7 @@ const selectionFrame = computed(() => {
   const rotateArrows = HANDLES.filter(({ hx, hy }) => hx !== 0 && hy !== 0).map(({ hx, hy }) => ({
     key: `${hx}${hy}`,
     d: rotateArrow(box, hx, hy),
+    cursor: rotateCursor(hx, hy),
   }));
   // A 1px line with 4px dashes, converted to mm (so both scale the same way).
   return { box, handles, rotateArrows, line: 1 / scale.value, dash: 4 / scale.value };
@@ -538,7 +567,9 @@ function onPointerDown(event: PointerEvent) {
   const modifier = event.shiftKey || event.ctrlKey;
 
   if (editor.tool === "select") {
-    if (target.closest("[data-rotate]")) startRotate(event);
+    // A rotate arrow: the rotation keeps that corner's cursor while dragging.
+    const grabbed = target.closest("[data-rotate]") as SVGElement | null;
+    if (grabbed) startRotate(event, grabbed.style.cursor);
     else if (handle) startResize(event, Number(handle.dataset.handle));
     else selectAndStartMove(event, hitId, onSelection);
     return;
@@ -729,16 +760,24 @@ function onDoubleClick(event: MouseEvent) {
     if (target?.kind === "segment") insertNode(target.index, target.t);
     return;
   }
-  if (editor.tool !== "select") return;
-  const hit = (event.target as Element).closest("[data-shape-id]") as SVGElement | null;
+  // Select and Text tools: a double-click on a text edits it.
+  if (editor.tool !== "select" && editor.tool !== "text") return;
+  // The shape under the cursor, found by position: the press before captured the pointer
+  // (for a drag), so the double-click arrives addressed to the canvas, not to the shape.
+  const hit = document
+    .elementsFromPoint(event.clientX, event.clientY)
+    .map((element) => element.closest("[data-shape-id]") as SVGElement | null)
+    .find((element) => element !== null);
   const shape = editor.shapes.find((candidate) => candidate.id === Number(hit?.dataset.shapeId));
-  if (shape?.type === "image") {
+  if (shape?.type === "image" && editor.tool === "select") {
     select(shape.id, "replace");
     adjustImageId.value = shape.id;
     return;
   }
   if (shape?.type !== "text") return;
   select(shape.id, "replace");
+  // With the Text tool, the double-click's first click started a new, empty text: editing
+  // this one ends (and drops) it.
   editText(shape);
 }
 
@@ -990,9 +1029,12 @@ function onKeyDown(event: KeyboardEvent) {
   }
 }
 
+/** Named keys a text being typed uses: new line, deleting, moving the caret. */
+const TEXT_KEYS = ["Enter", "Backspace", "Delete", "ArrowLeft", "ArrowRight", "Home", "End"];
+
 /**
- * A key while typing a text: Escape ends it, Enter starts a new line, Backspace deletes
- * the last character, and a character is added. Ctrl shortcuts are ignored, but
+ * A key while typing a text: Escape ends it; Enter, Backspace, Delete, ←/→, Home/End act at
+ * the caret (see typeKey), and a character is added there. Ctrl shortcuts are ignored, but
  * AltGr (reported as Ctrl+Alt) still types its characters.
  */
 function onTextKey(event: KeyboardEvent) {
@@ -1000,7 +1042,7 @@ function onTextKey(event: KeyboardEvent) {
   if (event.key === "Escape") finishText();
   // Ctrl+Z ends the typing and undoes it; Ctrl+Shift+Z ends it and redoes.
   else if (shortcut && event.key.toLowerCase() === "z") (event.shiftKey ? redo : undo)();
-  else if (event.key === "Enter" || event.key === "Backspace") typeKey(event.key);
+  else if (TEXT_KEYS.includes(event.key)) typeKey(event.key);
   // Named keys (Shift, ArrowLeft, Dead…) are longer than one character.
   else if (event.key.length === 1 && !shortcut) typeKey(event.key);
   else return;
@@ -1042,6 +1084,7 @@ onUnmounted(() => {
         calibrating: !!calibrating,
       }"
       :viewBox="viewBox"
+      :style="rotation ? { cursor: rotation.cursor } : undefined"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
@@ -1150,6 +1193,15 @@ onUnmounted(() => {
           </template>
           <template v-else>
             <path class="shape" :d="svgPath(shape)" />
+            <!-- A text reacts over its whole box (between and inside the letters too), so a
+                 click selects it and a double-click edits it. -->
+            <path
+              v-if="shape.type === 'text' && (editor.tool === 'select' || editor.tool === 'text')"
+              class="box-hit"
+              :d="svgPath({ ...shape, type: 'rectangle' })"
+            >
+              <title>{{ editor.tool === "select" ? TEXT_TITLE : "Double-click to edit the text" }}</title>
+            </path>
             <path class="hit" :d="svgPath(shape)">
               <title v-if="editor.tool === 'select'">{{ SHAPE_TITLE }}</title>
               <title v-else-if="editor.tool === 'nodes'">{{ shape.type === 'text' ? TEXT_NODES_TITLE : NODES_TITLE }}</title>
@@ -1167,6 +1219,18 @@ onUnmounted(() => {
           />
           <path v-else class="shape preview" :d="svgPath(preview)" />
         </template>
+
+        <!-- The path cut so far by the running (or last) job, in green over the shapes. -->
+        <path v-if="cutTrail.length > 0" class="cut-trail" :d="trailPath" />
+        <!-- Where the laser is while a job runs: a red dot 4 screen pixels across at "fit",
+             fixed in mm, so it grows when zooming in like the shapes. -->
+        <circle
+          v-if="status.busy && status.task !== 'home' && headPosition"
+          class="head"
+          :cx="headPosition[0]"
+          :cy="headPosition[1]"
+          :r="2 / fitScale"
+        />
 
         <!-- Where the next typed character goes. -->
         <line v-if="caret" class="caret" v-bind="caret" />
@@ -1259,7 +1323,13 @@ onUnmounted(() => {
             :stroke-dasharray="selectionFrame.dash"
           />
           <!-- Each arrow is drawn twice: visible, and as a wide invisible line that is easy to grab. -->
-          <g v-for="arrow in selectionFrame.rotateArrows" :key="arrow.key" data-rotate class="rotate-arrow">
+          <g
+            v-for="arrow in selectionFrame.rotateArrows"
+            :key="arrow.key"
+            data-rotate
+            class="rotate-arrow"
+            :style="{ cursor: arrow.cursor }"
+          >
             <path class="arrow" :d="arrow.d" />
             <path class="grab" :d="arrow.d">
               <title>{{ ROTATE_ARROW_TITLE }}</title>
@@ -1311,6 +1381,23 @@ onUnmounted(() => {
         <line v-bind="axisShadows.x" />
         <line v-bind="axisShadows.y" />
       </g>
+      <!-- Its size in mm, inside the bed next to each line: width above X, height right of Y (upright). -->
+      <g v-if="axisShadows" class="axis-size" :font-size="fontSize" :stroke-width="3 / scale">
+        <text :x="axisShadows.middle.x" :y="axes.y - fontSize * 0.3" text-anchor="middle">
+          {{ axisShadows.width }}
+        </text>
+        <!-- Turned 90° counterclockwise (it reads upward, along the axis); "hanging" puts the
+             letters on the bed's side of the anchor, right of the line. -->
+        <text
+          :x="axes.x + fontSize * 0.3"
+          :y="axisShadows.middle.y"
+          text-anchor="middle"
+          dominant-baseline="hanging"
+          :transform="`rotate(-90 ${axes.x + fontSize * 0.3} ${axisShadows.middle.y})`"
+        >
+          {{ axisShadows.height }}
+        </text>
+      </g>
 
       <!-- Axis labels in mm. The origin's "0" sits left of the corner, right-aligned like
            the Y labels, so it lines up with both axes. -->
@@ -1325,13 +1412,15 @@ onUnmounted(() => {
         >
           {{ label.value }}
         </text>
+        <!-- Y labels turned 90° counterclockwise (reading upward), centered on their place;
+             the baseline is next to the axis, so the digits stand left of it. -->
         <text
           v-for="label in axisLabels.y"
           :key="`y${label.value}`"
-          :x="axes.x - fontSize * 0.4"
+          :x="axes.x - fontSize * 0.3"
           :y="label.y"
-          text-anchor="end"
-          dominant-baseline="middle"
+          text-anchor="middle"
+          :transform="`rotate(-90 ${axes.x - fontSize * 0.3} ${label.y})`"
         >
           {{ label.value }}
         </text>
@@ -1476,6 +1565,16 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
+/* The selection's size: like the shadow lines, with a halo of the bed's color so it
+   stays readable over the grid and the shapes. */
+.axis-size {
+  fill: #555555;
+  stroke: var(--bed);
+  /* stroke-width is set in the template: 3 screen pixels at any zoom. */
+  paint-order: stroke;
+  pointer-events: none;
+}
+
 .axis-labels {
   fill: var(--muted);
   /* Labels never catch clicks meant for the bed. */
@@ -1507,8 +1606,9 @@ onUnmounted(() => {
   stroke: var(--accent);
 }
 
-/* An image reacts to the pointer over its whole surface, like in LightBurn. */
-.image-hit {
+/* An image (and a text, see the template) reacts to the pointer over its whole surface. */
+.image-hit,
+.box-hit {
   fill: transparent;
   stroke: none;
 }
@@ -1567,12 +1667,19 @@ onUnmounted(() => {
   pointer-events: stroke;
 }
 
-/* A circular-arrow cursor (there is no standard "rotate" cursor). */
-.rotate-arrow {
-  cursor:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a9 9 0 1 1-2.64-6.36L21 8'/%3E%3Cpath d='M21 3v5h-5'/%3E%3C/svg%3E")
-      10 10,
-    crosshair;
+/* The path already cut: green, 2 screen pixels wide at any zoom; it never takes clicks. */
+.cut-trail {
+  fill: none;
+  stroke: #2e9e44;
+  stroke-width: 2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.head {
+  fill: #e02020;
+  pointer-events: none;
 }
 
 /* The line being drawn only shows; clicks go to the canvas. */

@@ -15,7 +15,7 @@ import {
 import { status } from "./laser";
 
 /** Size of a new text: the height of its capitals, in mm (like LightBurn). */
-const DEFAULT_SIZE = 15;
+const DEFAULT_SIZE = 19;
 /** Font picked first, if it is installed. */
 const DEFAULT_FONT = "Arial";
 
@@ -114,6 +114,8 @@ interface TextEdit {
   angle: number;
   /** Where the next character goes, in mm. */
   caret: Point;
+  /** The caret's place in the text: how many characters are before it. */
+  cursor: number;
   /** Counts the requests to Rust, so only the latest answer is used. */
   request: number;
 }
@@ -134,11 +136,12 @@ export function startText(point: Point) {
     welded: textSettings.welded,
     angle: 0,
     caret: point,
+    cursor: 0,
     request: 0,
   };
 }
 
-/** Double-click on a text: continue typing at its end. */
+/** Double-click on a text: edit it, the caret at its end. */
 export function editText(shape: Shape) {
   finishText();
   if (!shape.font) return;
@@ -151,6 +154,7 @@ export function editText(shape: Shape) {
     welded: shape.welded ?? false,
     angle: shape.angle ?? 0,
     caret: anchorOf(shape),
+    cursor: Array.from(shape.text ?? "").length,
     request: 0,
   };
   refresh(textEdit.value);
@@ -164,13 +168,34 @@ export function finishText() {
 // Choosing another tool ends the typing.
 watch(() => editor.tool, finishText);
 
-/** A typed key: a character, Enter (new line) or Backspace (removes the last character). */
+/**
+ * A typed key, at the caret: a character, Enter (new line), Backspace (removes the character
+ * before the caret), Delete (the one after it); ←/→ move the caret, Home/End to the start or
+ * end of its line. Characters are counted as Array.from does, so an emoji is one.
+ */
 export function typeKey(key: string) {
   const edit = textEdit.value;
   if (!edit) return;
-  if (key === "Backspace") edit.content = Array.from(edit.content).slice(0, -1).join("");
-  else if (key === "Enter") edit.content += "\n";
-  else edit.content += key;
+  const chars = Array.from(edit.content);
+  const at = Math.min(edit.cursor, chars.length);
+  if (key === "ArrowLeft") edit.cursor = Math.max(0, at - 1);
+  else if (key === "ArrowRight") edit.cursor = Math.min(chars.length, at + 1);
+  else if (key === "Home") edit.cursor = chars.lastIndexOf("\n", at - 1) + 1;
+  else if (key === "End") {
+    const end = chars.indexOf("\n", at);
+    edit.cursor = end < 0 ? chars.length : end;
+  } else if (key === "Backspace") {
+    if (at === 0) return;
+    chars.splice(at - 1, 1);
+    edit.cursor = at - 1;
+  } else if (key === "Delete") {
+    if (at === chars.length) return;
+    chars.splice(at, 1);
+  } else {
+    chars.splice(at, 0, key === "Enter" ? "\n" : key);
+    edit.cursor = at + 1;
+  }
+  edit.content = chars.join("");
   refresh(edit);
 }
 
@@ -178,9 +203,15 @@ export function typeKey(key: string) {
  *  character, removed when none is left. Applies even if the typing ended meanwhile. */
 async function refresh(edit: TextEdit) {
   const request = ++edit.request;
+  const chars = Array.from(edit.content);
   let outline: TextOutline;
+  let caret: Point;
   try {
+    // The caret is where the text before it ends (the whole text's end when it is last).
+    const before =
+      edit.cursor < chars.length ? outlineOf(chars.slice(0, edit.cursor).join(""), edit.font, false) : null;
     outline = await outlineOf(edit.content, edit.font, edit.welded);
+    caret = before ? (await before).caret : outline.caret;
   } catch (error) {
     showError(error);
     return;
@@ -188,7 +219,7 @@ async function refresh(edit: TextEdit) {
   // A newer key was typed while waiting: its answer will do the update.
   if (request !== edit.request) return;
 
-  edit.caret = fromAnchor(edit.anchor, edit.size, edit.angle, outline.caret);
+  edit.caret = fromAnchor(edit.anchor, edit.size, edit.angle, caret);
   const placed = layout(outline, edit.anchor, edit.size, edit.angle);
   const index = editor.shapes.findIndex((shape) => shape.id === edit.shapeId);
   if (!placed) {
@@ -213,7 +244,18 @@ export async function createText(
   size: number,
   welded: boolean,
 ): Promise<number | null> {
-  const edit: TextEdit = { shapeId: null, anchor, content, font, size, welded, angle: 0, caret: anchor, request: 0 };
+  const edit: TextEdit = {
+    shapeId: null,
+    anchor,
+    content,
+    font,
+    size,
+    welded,
+    angle: 0,
+    caret: anchor,
+    cursor: Array.from(content).length,
+    request: 0,
+  };
   await refresh(edit);
   return edit.shapeId;
 }
@@ -229,7 +271,7 @@ export function applyTextSettings(font: FontInfo, size: number, welded: boolean,
     Object.assign(edit, { font, size, welded });
     refresh(edit);
   } else if (selected) {
-    refresh({
+    const changes = {
       shapeId: selected.id,
       anchor: anchorOf(selected),
       content: selected.text ?? "",
@@ -238,7 +280,15 @@ export function applyTextSettings(font: FontInfo, size: number, welded: boolean,
       welded,
       angle: selected.angle ?? 0,
       caret: anchorOf(selected),
-      request: 0,
-    });
+      cursor: Array.from(selected.text ?? "").length,
+    };
+    // The same object for quick changes of one text (e.g. fonts browsed with the arrows):
+    // its request counter then keeps only Rust's latest answer.
+    if (selectedChange?.shapeId === selected.id) Object.assign(selectedChange, changes);
+    else selectedChange = { ...changes, request: 0 };
+    refresh(selectedChange);
   }
 }
+
+/** The last change of a selected (not typed) text's settings. */
+let selectedChange: TextEdit | null = null;

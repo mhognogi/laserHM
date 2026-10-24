@@ -67,6 +67,9 @@ export interface Shape extends Geometry {
   /** Image only: the imported picture (see images.ts) and how it is engraved. */
   imageId?: number;
   imageSettings?: ImageSettings;
+  /** Image only: the picture is mirrored left-right / upside down (Flip). */
+  flipX?: boolean;
+  flipY?: boolean;
   /** Can be moved and rotated, not resized (a Material Test: its cells would no longer match). */
   fixedSize?: boolean;
 }
@@ -404,6 +407,37 @@ export function rotateGroup(snapshot: Snapshot, pivot: Point, degrees: number) {
     shape.cx = pivot.x + center.x;
     shape.cy = pivot.y + center.y;
     shape.angle = normalizeAngle((geometry.angle ?? 0) + degrees);
+  }
+}
+
+/**
+ * Flip, as in LightBurn: mirrors the selection around its center, left-right ("horizontal")
+ * or upside down ("vertical"). Each center is mirrored; a turned shape turns the other way
+ * (-angle) and its own outline is mirrored inside its box (x → -x, or y → -y).
+ */
+export function flipSelected(direction: "horizontal" | "vertical") {
+  const box = selectionBox();
+  if (!box) return;
+  const horizontal = direction === "horizontal";
+  const mirror = (p: Point): Point => (horizontal ? { x: -p.x, y: p.y } : { x: p.x, y: -p.y });
+  for (const shape of selectedShapes()) {
+    if (horizontal) shape.cx = box.left + box.right - shape.cx;
+    else shape.cy = box.bottom + box.top - shape.cy;
+    shape.angle = normalizeAngle(-(shape.angle ?? 0));
+    if (shape.contours) shape.contours = shape.contours.map((contour) => contour.map(mirror));
+    if (shape.nodes) {
+      shape.nodes = shape.nodes.map((node) => ({
+        ...node,
+        p: mirror(node.p),
+        in: node.in && mirror(node.in),
+        out: node.out && mirror(node.out),
+      }));
+    }
+    if (shape.origin) shape.origin = mirror(shape.origin);
+    if (shape.type === "image") {
+      if (horizontal) shape.flipX = !shape.flipX;
+      else shape.flipY = !shape.flipY;
+    }
   }
 }
 
