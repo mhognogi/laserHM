@@ -1,7 +1,128 @@
 <script setup lang="ts">
 // Help > How to use: a large popup with instructions, one section per topic.
-import { onMounted, onUnmounted } from "vue";
-import { X } from "lucide-vue-next";
+import { onMounted, onUnmounted, type Component } from "vue";
+import {
+  Circle,
+  Combine,
+  Crosshair,
+  Hexagon,
+  MousePointer2,
+  PenTool,
+  Ruler,
+  Spline,
+  Square,
+  SquaresIntersect,
+  SquaresSubtract,
+  Type,
+  Ungroup,
+  X,
+} from "lucide-vue-next";
+import LaserFireIcon from "./LaserFireIcon.vue";
+
+/** The tool bar's buttons, top to bottom, with the same icons. `mirrored`: as in the tool bar. */
+const TOOLS: { name: string; icon: Component; mirrored?: boolean; text: string[] }[] = [
+  {
+    name: "Select",
+    icon: MousePointer2,
+    text: [
+      "Click a shape to select it. Shift+click adds a shape. Ctrl+click adds or removes a shape.",
+      "Drag on an empty area to select the shapes in a rectangle.",
+      "Drag a selected shape to move it. Drag a small square to resize it.",
+      "Drag a round arrow near a corner to rotate it. Push Del to delete it.",
+      "Double-click a text to edit it.",
+    ],
+  },
+  {
+    name: "Edit Nodes",
+    icon: Spline,
+    text: [
+      "Click a shape to show its nodes. Drag a node or a curve handle to change the shape.",
+      "Over a node or a segment, push: D delete, L straight, C curve, I insert a node, M insert at the middle, B break, S smooth.",
+      "Rectangles, ellipses and polygons become lines when you change them. Push Esc when you are done.",
+    ],
+  },
+  {
+    name: "Draw Lines",
+    icon: PenTool,
+    text: [
+      "Click to add points. Click and drag to make a curve. Hold Ctrl for steps of 15°.",
+      "Click the first point to close the shape. Double-click, right-click or push Esc to stop an open line.",
+    ],
+  },
+  {
+    name: "Rectangle",
+    icon: Square,
+    text: ["Drag to draw. Hold Ctrl for a square. Hold Shift to draw from the center."],
+  },
+  {
+    name: "Ellipse",
+    icon: Circle,
+    text: ["Drag to draw. Hold Ctrl for a circle. Hold Shift to draw from the center."],
+  },
+  {
+    name: "Polygon",
+    icon: Hexagon,
+    text: ["Drag to draw a hexagon. Hold Ctrl for equal sides. Hold Shift to draw from the center."],
+  },
+  {
+    name: "Text",
+    icon: Type,
+    text: [
+      "Click on the canvas and type. Push Enter for a new line. Push Esc when you are done.",
+      "Set the font and the size in the top bar.",
+    ],
+  },
+  {
+    name: "Position Laser",
+    icon: Crosshair,
+    text: [
+      "Click on the canvas. The laser head moves to this point with the laser off.",
+      "The laser must be connected and not busy.",
+    ],
+  },
+  {
+    name: "Fire",
+    icon: LaserFireIcon,
+    text: [
+      "Hold the button to turn on the laser without movement. Release it to turn the laser off.",
+      "Set the power in the Fire field of the top bar. Wear safety glasses.",
+    ],
+  },
+  {
+    name: "Measure",
+    icon: Ruler,
+    text: [
+      "Drag from one point to another. The ends attach to near nodes and corners.",
+      "The top bar shows the distance, dX, dY and the angle. Push Esc to clear the measurement.",
+    ],
+  },
+  {
+    name: "Break Apart",
+    icon: Ungroup,
+    text: ["Splits each selected text or shape with separate pieces into one shape for each piece."],
+  },
+  {
+    name: "Weld",
+    icon: Combine,
+    text: ["Joins 2 or more selected shapes into one outline. The lines inside the overlaps go away."],
+  },
+  {
+    name: "Subtract",
+    icon: SquaresSubtract,
+    text: ["Removes the second selected shape from the first."],
+  },
+  {
+    name: "Subtract (reversed)",
+    icon: SquaresSubtract,
+    mirrored: true,
+    text: ["Removes the first selected shape from the second."],
+  },
+  {
+    name: "Intersection",
+    icon: SquaresIntersect,
+    text: ["Keeps only the part that the 2 selected shapes have in common."],
+  },
+];
 
 const emit = defineEmits<{ close: [] }>();
 
@@ -21,28 +142,35 @@ onUnmounted(() => window.removeEventListener("keydown", onKey));
       </div>
 
       <div class="content">
-        <h2>Engraving images</h2>
+        <h2>Tools</h2>
+        <!-- One row per tool: its icon, as in the tool bar on the left, then what it does. -->
+        <div v-for="tool in TOOLS" :key="tool.name" class="tool">
+          <component :is="tool.icon" :size="20" :class="{ mirrored: tool.mirrored }" />
+          <div>
+            <strong>{{ tool.name }}</strong>
+            <p v-for="line in tool.text" :key="line">{{ line }}</p>
+          </div>
+        </div>
+
+        <h2>Camera calibration</h2>
+        <p>
+          After the calibration, the camera image matches the work area. LaserHM corrects each quarter of the
+          square separately, so the image is exact inside the square.
+        </p>
         <ol>
-          <li>File → Import… (or Ctrl+I, as in LightBurn) and pick a PNG, JPG or BMP.</li>
+          <li>Draw a large square. Cut it in a sheet of material. Do not move the material.</li>
+          <li>In the top bar, click the camera button. The canvas shows the camera image.</li>
+          <li>Select the square that you cut.</li>
+          <li>Click <strong>Tools</strong> &gt; <strong>Calibrate camera</strong>. The "Camera calibration" window opens.</li>
           <li>
-            The image appears in the middle of the work area, at the size its DPI gives (254 DPI if the file
-            has none). Adjust Image opens by itself.
-          </li>
-          <li>
-            In Adjust Image: the original on the left, the engraving preview on the right, with the number of
-            dots under it. Settings: Image Mode (Threshold, Floyd-Steinberg, Jarvis, Stucki, Grayscale), Line
-            Interval / DPI, Negative, Contrast, Brightness, Gamma, Speed, Power max and Power min (Grayscale
-            only). Reset All, OK and Cancel.
-          </li>
-          <li>
-            On the canvas the image shows as it will be engraved. Move, rotate and resize it like any shape.
-            Double-click it to open Adjust Image again.
-          </li>
-          <li>
-            Start engraves it line by line, with a 2.5 mm overscan. Power, Speed and Passes in the laser panel
-            are locked and show the image's settings, as with Material Test.
+            In the camera image, click 9 points of the cut square in this order: the 4 corners (bottom-left,
+            bottom-right, top-right, top-left), the middles of the 4 sides (bottom, right, top, left), the center.
           </li>
         </ol>
+        <p>
+          LaserHM aligns the camera image with the canvas and keeps the calibration. To cancel the calibration,
+          push Esc.
+        </p>
       </div>
     </div>
   </div>
@@ -91,6 +219,22 @@ h2 {
   font-size: 1.1em;
 }
 
+.tool {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tool p {
+  margin: 0;
+}
+
+.content > p {
+  margin: 4px 0;
+}
+
 ol {
   margin: 0;
   padding-left: 20px;
@@ -98,6 +242,11 @@ ol {
 
 li + li {
   margin-top: 4px;
+}
+
+/* As in the tool bar: the reversed Subtract's icon is mirrored and turned. */
+.mirrored {
+  transform: rotate(90deg) scaleX(-1);
 }
 
 button.icon {
