@@ -1,6 +1,6 @@
 [package]
 name = "laserhm"
-version = "0.1.2"
+version = "0.1.3"
 description = "Design, cut and engrave with GRBL diode lasers"
 authors = ["Marius Hognogi"]
 license = "MIT"
