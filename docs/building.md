@@ -6,8 +6,6 @@ This page is for programmers. To use LaserHM, see the [user guide](user-guide.md
 
 - [Node.js](https://nodejs.org/)
 - [Rust](https://www.rust-lang.org/tools/install)
-- Linux only: the system libraries that Tauri needs
-  (`libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`, `patchelf`, `libudev-dev`, `pkg-config`).
 
 ## Procedure
 
@@ -33,6 +31,6 @@ This page is for programmers. To use LaserHM, see the [user guide](user-guide.md
 
 ## Releases
 
-When you push a version tag (for example `v0.1.2`), GitHub Actions makes the installers for Windows and Linux.
+When you push a version tag (for example `v0.1.2`), GitHub Actions makes the installers for Windows.
 It puts them in a draft release. Publish the draft on the Releases page.
 See `.github/workflows/release.yml`.

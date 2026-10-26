@@ -16,9 +16,9 @@ import { status } from "./laser";
 
 /** Size of a new text: the height of its capitals, in mm (like LightBurn). */
 const DEFAULT_SIZE = 19;
-/** Font picked first: the first of these installed (Arial on Windows; on Linux usually
- *  Liberation Sans, Arial's twin, or DejaVu Sans). Same list as DEFAULT_FONTS in text.rs. */
-const DEFAULT_FONTS = ["Arial", "Liberation Sans", "DejaVu Sans"];
+/** Font picked first: the first of these installed (Arial is on every Windows).
+ *  Same list as DEFAULT_FONTS in text.rs. */
+const DEFAULT_FONTS = ["Arial"];
 
 /** The installed fonts, loaded once from Rust. */
 export const fonts = ref<FontInfo[]>([]);

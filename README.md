@@ -63,8 +63,6 @@ Claude cannot start the laser: you always start the job.
 2. Download the file that ends in `x64-setup.exe`.
 3. Install LaserHM.
 
-A version for Linux is not available yet.
-
 For all the steps, see the [user guide](docs/user-guide.md#1-install-laserhm).
 
 ## Requirements

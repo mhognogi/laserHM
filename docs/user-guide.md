@@ -22,7 +22,7 @@ LaserHM controls lasers with a GRBL controller.
 - A computer with Windows 10 or Windows 11.
 - An internet connection.
 
-### Windows
+### Procedure
 
 1. Go to the [Releases page](https://github.com/mhognogi/laserHM/releases).
 2. Under **Assets**, download the file that ends in `x64-setup.exe`.
@@ -32,10 +32,6 @@ LaserHM controls lasers with a GRBL controller.
 5. Follow the steps of the installer.
 
 **Result:** LaserHM is in the Start menu.
-
-### Linux
-
-A version for Linux is not available yet.
 
 ---
 

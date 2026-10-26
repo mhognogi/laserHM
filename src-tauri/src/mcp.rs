@@ -56,17 +56,9 @@ struct ToolAnswer {
 }
 
 /// LaserHM's config folder, found without Tauri (the bridge has no app), as Tauri finds it:
-/// Windows %APPDATA%\<identifier>; Linux $XDG_CONFIG_HOME/<identifier> or ~/.config/<identifier>.
+/// %APPDATA%\<identifier>.
 fn app_config_dir() -> Option<PathBuf> {
-    let base = if cfg!(windows) {
-        PathBuf::from(std::env::var_os("APPDATA")?)
-    } else {
-        match std::env::var_os("XDG_CONFIG_HOME").filter(|dir| !dir.is_empty()) {
-            Some(dir) => PathBuf::from(dir),
-            None => PathBuf::from(std::env::var_os("HOME")?).join(".config"),
-        }
-    };
-    Some(base.join(IDENTIFIER))
+    Some(PathBuf::from(std::env::var_os("APPDATA")?).join(IDENTIFIER))
 }
 
 fn endpoint_file(config_dir: PathBuf) -> PathBuf {
